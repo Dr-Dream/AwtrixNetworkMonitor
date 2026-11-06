@@ -7,7 +7,7 @@
 
 # @config tcphosts     text   "TCP hosts"       default="" maxlen=256 hint="example.com:443,192.168.1.1:80" group="Monitoring"
 # @config httphosts    text   "HTTP URLs"       default="" maxlen=512 hint="https://example.com,http://192.168.1.1" group="Monitoring"
-# @config ipurl        text   "Public IP URL" default="http://ifconfig.me" maxlen=256 help="Response must contain only an IP address" group="Monitoring"
+# @config ipurl        text   "Public IP URL" default="http://ifconfig.me/ip" maxlen=256 help="Response must contain only an IP address" group="Monitoring"
 # @config interval     number "Check interval"  default=60 min=30 max=600 unit=s group="Monitoring"
 # @config wanperiod    number "Public IP refresh"     default=300 min=60 max=3600 unit=s group="Monitoring"
 # @config tcp_timeout  number "TCP timeout"     default=4 min=1 max=30 unit=s group="Monitoring"
