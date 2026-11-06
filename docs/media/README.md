@@ -32,3 +32,13 @@ The user's actual hosts were temporarily replaced with `example.com` and the doc
 TCP/HTTP results and short histories are real observations of the temporary capture setup. Some HTTP requests failed; failure labels and graph bars have not been retouched. A full history takes multiple scans to accumulate, so the graphs are intentionally sparse.
 
 All original configuration values were restored and compared with the pre-capture backup after recording. No original hostnames, credentials, configuration backups, or raw capture logs are included in this directory.
+
+## Relative-latency examples
+
+These actual TC002 framebuffer captures show synthetic histories using the accepted relative mapping at `graph_full_pct=100`:
+
+- [Stable 5 ms](graph-relative-flat-device.png): entirely green despite full-height autoscaling.
+- [Small 5–6 ms fluctuations](graph-relative-jitter-device.png): slight tint without an orange peak.
+- [Large 5–50 ms changes](graph-relative-spikes-device.png): orange peaks, greener falling values and red failures.
+
+The original installed source and every stored configuration value were restored and compared exactly after capture.

@@ -69,7 +69,7 @@ The upper line shows a small TCP or HTTP pictogram, the target, and its result i
 The graph fills the lower half of the available interface area:
 
 - One completed check occupies one pixel column.
-- Successful checks are green by default; bar height is scaled to the largest successful response time in the retained history.
+- Successful bars use a green-to-orange vertical gradient relative to the minimum successful response time in each node’s retained history. Stable values stay green; small fluctuations receive a slight tint, and substantial increases move toward orange. Falling values become greener again. **Full orange increase** (100% by default) sets the minimum relative growth needed to reach orange; when the observed range is larger, its maximum becomes the orange endpoint. Bar heights scale to the largest successful response time in the retained history.
 - Failed checks are full-height red bars.
 - Oldest samples appear on the left; newest samples appear on the right. Once full, the graph drops the oldest sample.
 - With no samples, a dim baseline is shown. With no configured targets, the page displays `--` and `0 targets`.
@@ -153,6 +153,8 @@ All settings are available in the app's gear menu. Defaults below apply to a new
 | **Page mode** (`mode`) | `auto` | `auto` or `manual`; see controls above. |
 | **Minimum entry duration** (`pagetime`) | 5 s | Minimum time for HOME or one target entry, not an entire target list; 2–30 s. |
 | **Scroll wait limit** (`scrollwait`) | 60 s | Maximum wait per entry; 10–180 s. The effective limit is at least the minimum entry duration. |
+| **Graph gradient** (`graph_gradient`) | On | Green-to-orange vertical gradient for successful history bars. Off uses a solid Success color. |
+| **Full orange increase** (`graph_full_pct`) | 100% | Minimum increase above the retained successful minimum needed for full orange; 10–1000%. Larger values soften the color change. |
 | **Scroll speed** (`scrollspeed`) | 65% | Scrolling speed; 10–300%. Firmware base speed at 100% is 21 pixels/s. |
 | **Scroll gap** (`scrollgap`) | 10 px | Gap between scrolling repeats; 0–100 px. |
 | **Scroll start delay** (`scrollhold`) | 500 ms | Pause before scrolling begins; 0–5000 ms. |
@@ -177,6 +179,7 @@ The history capacity follows the remaining interface width: 52 samples per targe
 
 | Setting | Default | Used for |
 | --- | --- | --- |
+| **Slow graph color** (`color_graph_top`) | `#FF9830` | Gradient color at and above Orange response time. The low-latency endpoint uses Success. |
 | **Success** (`color_ok`) | `#40D080` | Successful results, active OK count, and successful history bars. |
 | **Failure** (`color_fail`) | `#FF4040` | Failed results, alerts, active failure count, and failed history bars. |
 | **Pending** (`color_wait`) | `#FFD040` | Pending results and active pending count. |

@@ -1,7 +1,7 @@
 # @name    Network-Monitor-TCP-HTTP
 # @desc    TCP, HTTP and public IP monitoring (TC002)
 # @author  Dr-Dream / ChatGPT / Codex
-# @version 0.27
+# @version 0.30
 
 # @needs tcp
 
@@ -30,6 +30,9 @@
 # @config icon_left number "Icon left margin" default=1 min=1 max=4 unit=px group="Icon"
 # @config icon_inset number "Icon inset" default=1 min=0 max=2 unit=px help="Inset on each vertical edge; 1 gives a 14x14 icon on TC002" group="Icon"
 # @config icon_step number "Animation frame duration" default=350 min=100 max=2000 unit=ms group="Icon"
+# @config graph_gradient bool "Graph gradient" default=true group="Display"
+# @config graph_full_pct number "Full orange increase" default=100 min=10 max=1000 unit=% help="Minimum growth above the history minimum needed for full orange" group="Display"
+# @config color_graph_top color "Slow graph color" default=#FF9830 group="Colors"
 # @config color_ok color "Success" default=#40D080 group="Colors"
 # @config color_fail color "Failure" default=#FF4040 group="Colors"
 # @config color_wait color "Pending" default=#FFD040 group="Colors"
@@ -87,6 +90,7 @@ class NetworkMonitor
   var color_ok, color_fail, color_wait, color_info, color_http, color_text, color_dim, color_reason, color_empty
   var show_icon, icon_kind, icon_color, icon_dim, icon_animate, icon_step_ms
   var icon_lines, icon_dots, icon_left, icon_side, icon_top, content_x, content_width
+  var graph_gradient, graph_colors, graph_full_pct
   var scroll_opts
 
   # --------------------------------------------------
@@ -123,6 +127,22 @@ class NetworkMonitor
     self.color_dim = store.get("color_dim")
     self.color_reason = store.get("color_reason")
     self.color_empty = store.get("color_empty")
+    self.graph_gradient = store.get("graph_gradient")
+    self.graph_full_pct = int(store.get("graph_full_pct"))
+    self.graph_colors = []
+    var graph_rows = max(0, height() - 8)
+    var top_color = store.get("color_graph_top")
+    var steps = max(1, graph_rows - 1)
+    var row = 0
+    # Cache a small palette; relative latency growth selects its colors during drawing.
+    while row < graph_rows
+      self.graph_colors.push(rgb(
+        ((self.color_ok >> 16) & 255) + ((((top_color >> 16) & 255) - ((self.color_ok >> 16) & 255)) * row / steps),
+        ((self.color_ok >> 8) & 255) + ((((top_color >> 8) & 255) - ((self.color_ok >> 8) & 255)) * row / steps),
+        (self.color_ok & 255) + (((top_color & 255) - (self.color_ok & 255)) * row / steps)
+      ))
+      row += 1
+    end
     self.visible = false
     self.held = false
     self.scrollwait_ms = int(store.get("scrollwait")) * 1000
@@ -1272,13 +1292,17 @@ class NetworkMonitor
       return
     end
 
-    # Find maximum successful latency.
+    # Find minimum and maximum successful latency.
     var max_latency = 1
+    var min_latency = -1
     var i = 0
 
     while i < count
       var sample = history[i]
 
+      if sample >= 0 && (min_latency < 0 || sample < min_latency)
+        min_latency = sample
+      end
       if sample > max_latency
         max_latency = sample
       end
@@ -1291,6 +1315,11 @@ class NetworkMonitor
     # Oldest sample left, newest sample right.
     # Incomplete history grows from left to right.
 
+    # Relative growth scales color strength; a small range stays near green.
+    # The 1 ms floor only guards zero-resolution measurements and division.
+    var baseline = max(0, min_latency)
+    var color_span = max(1, max(max_latency - baseline,
+                         max(1, baseline) * self.graph_full_pct / 100))
     i = 0
 
     while i < count
@@ -1318,13 +1347,19 @@ class NetworkMonitor
           bar_height = graph_height
         end
 
-        rect_fill(
-          x,
-          height() - bar_height,
-          1,
-          bar_height,
-          self.color_ok
-        )
+        if self.graph_gradient
+          var row = 0
+          while row < bar_height
+            # Color follows growth above the retained successful minimum.
+            var level = row * max_latency / max(1, graph_height - 1)
+            var shade = clamp((level - baseline) * (size(self.graph_colors) - 1) / color_span,
+                              0, size(self.graph_colors) - 1)
+            pixel(x, height() - 1 - row, self.graph_colors[shade])
+            row += 1
+          end
+        else
+          rect_fill(x, height() - bar_height, 1, bar_height, self.color_ok)
+        end
       end
 
       i += 1
