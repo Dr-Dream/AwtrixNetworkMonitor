@@ -6,6 +6,8 @@ Keep an eye on your network from your AWTRIX NG clock. NetworkMonitor checks TCP
 
 **Authors:** Dr-Dream / ChatGPT / Codex
 
+**GitHub:** [Dr-Dream/AwtrixNetworkMonitor](https://github.com/Dr-Dream/AwtrixNetworkMonitor)
+
 ## Features
 
 - Separate, comma-separated lists for TCP services and HTTP/HTTPS URLs.
@@ -200,6 +202,8 @@ Complete source: [NetworkMonitor.ax](NetworkMonitor.ax). Implementation details:
 ## Screenshots and animation
 
 [Downloadable PNG screenshots and animated GIF](docs/media/README.md) show real device captures made with temporary demonstration hosts. The original host configuration was restored after recording.
+
+Screenshots and animation use a visible LED grid with dark gaps between pixels, preserving the captured pixel layout and lit colors.
 
 ### HOME
 

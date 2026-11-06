@@ -1,6 +1,6 @@
 # AWTRIX Hub media
 
-These images were captured from the real 52×16 TC002 framebuffer running NetworkMonitor 0.27. Screenshots are enlarged 20× with nearest-neighbor scaling to **1040×320**, without smoothing, added labels, or fabricated results.
+These images were captured from the real 52×16 TC002 framebuffer running NetworkMonitor 0.27. Screenshots are rendered at **1040×320** with a visible LED matrix: each source pixel occupies a 20×20 cell with a 16×16 LED face and dark gaps. Unlit cells use a dim neutral face so the grid remains visible. Lit-pixel colors and positions are preserved, without smoothing, added labels, or fabricated results. The same presentation is applied to the GIF.
 
 ## Files
 
