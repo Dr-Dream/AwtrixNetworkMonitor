@@ -1,9 +1,9 @@
 # @name    NetworkMonitor
 # @desc    TCP, HTTP and public IP monitoring (TC002)
 # @author  ChatGPT
-# @version 0.23
+# @version 0.27
 
-# @needs tcp
+# @needs tcpф
 
 # @config tcphosts     text   "TCP hosts"       default="" maxlen=256 hint="example.com:443,192.168.1.1:80" group="Monitoring"
 # @config httphosts    text   "HTTP URLs"       default="" maxlen=512 hint="https://example.com,http://192.168.1.1" group="Monitoring"
@@ -23,6 +23,13 @@
 # @config scrollhold number "Scroll start delay" default=500 min=0 max=5000 unit=ms group="Display"
 # @config manualhold number "Hold after knob input" default=20 min=10 max=180 unit=s group="Display"
 # @config manualtime number "Manual display duration" default=30 min=5 max=180 unit=s group="Display"
+# @config show_icon bool "Show instance icon" default=false group="Icon"
+# @config icon_kind select "Instance icon" default=home options=home,shield,server,wifi,database,cloud help="Shield represents VPN" group="Icon"
+# @config icon_color color "Icon color" default=#40B8E0 group="Icon"
+# @config icon_animate bool "Animate icon" default=true group="Icon"
+# @config icon_left number "Icon left margin" default=1 min=1 max=4 unit=px group="Icon"
+# @config icon_inset number "Icon inset" default=1 min=0 max=2 unit=px help="Inset on each vertical edge; 1 gives a 14x14 icon on TC002" group="Icon"
+# @config icon_step number "Animation frame duration" default=350 min=100 max=2000 unit=ms group="Icon"
 # @config color_ok color "Success" default=#40D080 group="Colors"
 # @config color_fail color "Failure" default=#FF4040 group="Colors"
 # @config color_wait color "Pending" default=#FFD040 group="Colors"
@@ -78,6 +85,8 @@ class NetworkMonitor
   var home_ip, home_summary, home_counters, counters_key
   var manualhold_ms, manualtime_ms, historysize
   var color_ok, color_fail, color_wait, color_info, color_http, color_text, color_dim, color_reason, color_empty
+  var show_icon, icon_kind, icon_color, icon_dim, icon_animate, icon_step_ms
+  var icon_lines, icon_dots, icon_left, icon_side, icon_top, content_x, content_width
   var scroll_opts
 
   # --------------------------------------------------
@@ -87,7 +96,24 @@ class NetworkMonitor
   def init()
     self.manualhold_ms = int(store.get("manualhold")) * 1000
     self.manualtime_ms = int(store.get("manualtime")) * 1000
-    self.historysize = width()
+    self.show_icon = store.get("show_icon")
+    self.icon_kind = store.get("icon_kind")
+    self.icon_color = store.get("icon_color")
+    self.icon_dim = rgb(((self.icon_color >> 16) & 255) * 3 / 5,
+                        ((self.icon_color >> 8) & 255) * 3 / 5,
+                        (self.icon_color & 255) * 3 / 5)
+    self.icon_animate = store.get("icon_animate")
+    self.icon_step_ms = int(store.get("icon_step"))
+    self.icon_left = int(store.get("icon_left"))
+    self.icon_top = int(store.get("icon_inset"))
+    self.icon_side = max(1, height() - 2 * self.icon_top)
+    # Center the square vertically and keep one blank column before the UI.
+    self.content_x = self.show_icon ? self.icon_left + self.icon_side + 1 : 0
+    self.content_width = width() - self.content_x
+    self.historysize = self.content_width
+    self.icon_lines = nil
+    self.icon_dots = nil
+    if self.show_icon self.prepare_instance_icon() end
     self.color_ok = store.get("color_ok")
     self.color_fail = store.get("color_fail")
     self.color_wait = store.get("color_wait")
@@ -884,8 +910,59 @@ class NetworkMonitor
   # Display helpers
   # --------------------------------------------------
 
+  # Single-pixel vector outlines avoid thick, uneven bitmap scaling.
+  def prepare_instance_icon()
+    if self.icon_kind == "home"
+      self.icon_lines = [0, 6, 6, 0, 6, 0, 13, 6, 10, 1, 10, 3, 11, 1, 11, 4, 2, 6, 2, 13, 2, 13, 11, 13, 11, 13, 11, 6, 5, 13, 5, 9, 5, 9, 8, 9, 8, 9, 8, 13]
+      self.icon_dots = [4, 6, 9, 6, 4, 7, 9, 7]
+    elif self.icon_kind == "shield"
+      self.icon_lines = [0, 2, 3, 1, 3, 1, 6, 0, 6, 0, 10, 1, 10, 1, 13, 2, 13, 2, 12, 8, 12, 8, 10, 11, 10, 11, 6, 13, 6, 13, 3, 11, 3, 11, 1, 8, 1, 8, 0, 2, 5, 6, 5, 4, 5, 4, 8, 4, 8, 4, 8, 6, 4, 6, 9, 6, 9, 6, 9, 9, 9, 9, 4, 9, 4, 9, 4, 6]
+      self.icon_dots = [6, 7, 7, 7, 7, 8, 6, 8]
+    elif self.icon_kind == "server"
+      self.icon_lines = [1, 0, 12, 0, 12, 0, 12, 13, 12, 13, 1, 13, 1, 13, 1, 0, 1, 4, 12, 4, 1, 9, 12, 9, 3, 2, 7, 2, 3, 6, 7, 6, 3, 11, 7, 11]
+      self.icon_dots = [10, 2, 10, 6, 10, 11, 10, 6]
+    elif self.icon_kind == "wifi"
+      self.icon_lines = [0, 4, 2, 2, 2, 2, 5, 1, 5, 1, 8, 1, 8, 1, 11, 2, 11, 2, 13, 4, 2, 7, 4, 5, 4, 5, 6, 4, 6, 4, 7, 4, 7, 4, 9, 5, 9, 5, 11, 7, 4, 10, 6, 8, 6, 8, 7, 8, 7, 8, 9, 10, 6, 12, 7, 12, 6, 13, 7, 13]
+      self.icon_dots = [6, 1, 7, 4, 6, 8, 7, 12]
+    elif self.icon_kind == "database"
+      self.icon_lines = [1, 2, 3, 0, 3, 0, 10, 0, 10, 0, 12, 2, 12, 2, 10, 4, 10, 4, 3, 4, 3, 4, 1, 2, 1, 2, 1, 11, 12, 2, 12, 11, 1, 11, 3, 13, 3, 13, 10, 13, 10, 13, 12, 11, 1, 6, 3, 8, 3, 8, 10, 8, 10, 8, 12, 6]
+      self.icon_dots = [4, 10, 6, 10, 8, 10, 10, 10]
+    elif self.icon_kind == "cloud"
+      self.icon_lines = [0, 8, 0, 10, 0, 10, 2, 12, 2, 12, 11, 12, 11, 12, 13, 10, 13, 10, 13, 8, 13, 8, 12, 7, 12, 7, 10, 7, 10, 7, 10, 5, 10, 5, 8, 3, 8, 3, 6, 3, 6, 3, 4, 5, 4, 5, 4, 7, 4, 7, 3, 6, 3, 6, 2, 6, 2, 6, 0, 8]
+      self.icon_dots = [4, 10, 6, 10, 8, 10, 10, 10]
+    end
+  end
+
+  def draw_instance_icon()
+    if !self.show_icon || self.icon_lines == nil return end
+    var span = self.icon_side - 1
+    var phase = self.icon_animate ? int(now_ms() / self.icon_step_ms) % 4 : 0
+    # The cloud drifts gently; WiFi keeps its silhouette throughout the pulse.
+    var top = self.icon_top
+    if self.icon_kind == "cloud" && self.icon_animate && (phase == 1 || phase == 2)
+      top -= 1
+    end
+    var i = 0
+    while i < size(self.icon_lines)
+      var tint = self.icon_color
+      if self.icon_kind == "wifi" && self.icon_animate
+        if (phase == 1 && i < 20) || (phase == 2 && i >= 20 && i < 40)
+          tint = self.icon_dim
+        end
+      end
+      line(self.icon_left + self.icon_lines[i] * span / 13,
+           top + self.icon_lines[i + 1] * span / 13,
+           self.icon_left + self.icon_lines[i + 2] * span / 13,
+           top + self.icon_lines[i + 3] * span / 13, tint)
+      i += 4
+    end
+    if self.icon_kind == "cloud" || self.icon_kind == "wifi" return end
+    pixel(self.icon_left + self.icon_dots[phase * 2] * span / 13,
+          self.icon_top + self.icon_dots[phase * 2 + 1] * span / 13, self.icon_color)
+  end
+
   def px(x, y, color)
-    rect_fill(x, y, 1, 1, color)
+    rect_fill(self.content_x + x, y, 1, 1, color)
   end
 
   # --------------------------------------------------
@@ -992,7 +1069,7 @@ class NetworkMonitor
     end
 
     if pulse && (int(now_ms() / 350) % 2) == 0
-      rect_fill(state == "FAIL" ? 2 : 1, 9, 5, 5, 0x000000)
+      rect_fill(self.content_x + (state == "FAIL" ? 2 : 1), 9, 5, 5, 0x000000)
     end
   end
 
@@ -1001,7 +1078,7 @@ class NetworkMonitor
   # --------------------------------------------------
 
   def scroll_line(slot, x, y, w, label, color)
-    var runs = scroll_text(x, y, w, label, color, self.scroll_opts)
+    var runs = scroll_text(self.content_x + x, y, w, label, color, self.scroll_opts)
     if self.strip_labels[slot] != label
       var ink_width = text_ink_width(label)
       # Equal-width replacements inherit their predecessor's scroll phase.
@@ -1023,13 +1100,13 @@ class NetworkMonitor
     self.draw_status_icon(state, pulse)
 
     self.scroll_line(0,
-      9, 6, width() - 9,
+      9, 6, self.content_width - 9,
       line1,
       color1
     )
 
     self.scroll_line(1,
-      9, 14, width() - 9,
+      9, 14, self.content_width - 9,
       line2,
       color2
     )
@@ -1045,12 +1122,12 @@ class NetworkMonitor
 
     if state == "FAIL"
       if (int(now_ms() / 350) % 2) == 0
-        rect_fill(1, 1, 5, 5, 0x000000)
+        rect_fill(self.content_x + 1, 1, 5, 5, 0x000000)
       end
     end
 
     self.scroll_line(0,
-      9, 6, width() - 9,
+      9, 6, self.content_width - 9,
       line,
       color
     )
@@ -1124,12 +1201,12 @@ class NetworkMonitor
     self.draw_page_icon("home", color)
 
     self.scroll_line(0,
-      9, 6, width() - 9,
+      9, 6, self.content_width - 9,
       self.home_ip,
       color
     )
 
-    self.scroll_line(1, 0, 14, width(), self.home_counters, self.color_text)
+    self.scroll_line(1, 0, 14, self.content_width, self.home_counters, self.color_text)
   end
 
   # --------------------------------------------------
@@ -1186,9 +1263,9 @@ class NetworkMonitor
 
     if count == 0
       rect_fill(
-        0,
+        self.content_x,
         height() - 1,
-        width(),
+        self.content_width,
         1,
         self.color_empty
       )
@@ -1210,7 +1287,7 @@ class NetworkMonitor
     end
 
 
-    # One sample per pixel column across the full panel width.
+    # One sample per pixel column across the available UI width.
     # Oldest sample left, newest sample right.
     # Incomplete history grows from left to right.
 
@@ -1218,7 +1295,7 @@ class NetworkMonitor
 
     while i < count
       var sample = history[i]
-      var x = i
+      var x = self.content_x + i
 
       if sample < 0
         rect_fill(
@@ -1307,7 +1384,7 @@ class NetworkMonitor
     self.draw_protocol_icon(node["kind"])
 
     self.scroll_line(0,
-      8, 6, width() - 8,
+      8, 6, self.content_width - 8,
       node["title"],
       self.color_text
     )
@@ -1368,6 +1445,7 @@ class NetworkMonitor
     else
       self.draw_home()
     end
+    self.draw_instance_icon()
   end
 end
 
