@@ -2,7 +2,7 @@
 
 Keep an eye on your network from your AWTRIX NG clock. NetworkMonitor checks TCP services and HTTP endpoints, shows your public IP address, and cycles through a network overview, active failures, and per-host response history.
 
-**Platform:** Ulanzi TC002 · **Display:** 52 × 16 · **Version:** 0.27
+**Platform:** Ulanzi TC002 · **Display:** 52 × 16 · **Version:** 0.30
 
 **Authors:** Dr-Dream / ChatGPT / Codex
 
@@ -16,6 +16,7 @@ Keep an eye on your network from your AWTRIX NG clock. NetworkMonitor checks TCP
 - Public IPv4/IPv6 address retrieval through `http://ifconfig.me` by default.
 - Three pages: HOME, ALERTS, and NODES.
 - Colored results, failure reasons, response times, and a rolling history graph.
+- Relative green-to-orange history: stable responses stay green, large increases turn orange, and failed checks remain red.
 - Automatic page rotation or manual navigation with the knob.
 - Optional animated instance icons: house, VPN shield, server, WiFi, database, and cloud.
 - Configurable colors, intervals, timeouts, scrolling, and page timing.
@@ -77,6 +78,14 @@ The graph fills the lower half of the available interface area:
 - With no samples, a dim baseline is shown. With no configured targets, the page displays `--` and `0 targets`.
 
 The graph is drawn directly below the header across the full available width; the sketch uses punctuation only to suggest bars.
+
+### Relative response history in 0.30
+
+Actual device captures with synthetic data. Colors compare successful response times within each node’s retained history, rather than using fixed millisecond thresholds.
+
+| Stable 5 ms | Small 5–6 ms variation | Large 5–50 ms changes |
+| --- | --- | --- |
+| <img src="docs/media/graph-relative-flat-device.png" alt="Stable responses remain green" width="280"> | <img src="docs/media/graph-relative-jitter-device.png" alt="Small fluctuations receive a slight tint" width="280"> | <img src="docs/media/graph-relative-spikes-device.png" alt="Large increases reach orange; failed checks stay red" width="280"> |
 
 ### Optional instance icon
 
@@ -206,7 +215,7 @@ Complete source: [NetworkMonitor.ax](NetworkMonitor.ax). Implementation details:
 
 ## Screenshots and animation
 
-[Downloadable PNG screenshots and animated GIF](docs/media/README.md) show real device captures made with temporary demonstration hosts. The original host configuration was restored after recording.
+[Downloadable PNG screenshots and animated GIF](docs/media/README.md) include real device captures with temporary demonstration hosts and synthetic promotional scenes. The relative-gradient examples below show the rendering introduced in 0.30; the page-layout captures show 0.27. The original source and configuration were restored after recording.
 
 Screenshots and animation use a visible LED grid with dark gaps between pixels, preserving the captured pixel layout and lit colors.
 
