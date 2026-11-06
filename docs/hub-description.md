@@ -2,7 +2,7 @@
 
 Keep an eye on your network from your AWTRIX NG clock. NetworkMonitor checks TCP services and HTTP endpoints, shows your public IP address, and cycles through a network overview, active failures, and per-host response history.
 
-**Platform:** Ulanzi TC002 · **Display:** 52 × 16 · **Version:** 0.27
+**Platform:** Ulanzi TC002 · **Display:** 52 × 16 · **Version:** 0.30
 
 **Authors:** Dr-Dream / ChatGPT / Codex
 
@@ -14,6 +14,7 @@ Keep an eye on your network from your AWTRIX NG clock. NetworkMonitor checks TCP
 - Public IPv4/IPv6 address retrieval through `http://ifconfig.me` by default.
 - Three pages: HOME, ALERTS, and NODES.
 - Colored results, failure reasons, response times, and a rolling history graph.
+- Relative green-to-orange history: stable responses stay green, large increases turn orange, and failed checks remain red.
 - Automatic page rotation or manual navigation with the knob.
 - Optional animated instance icons: house, VPN shield, server, WiFi, database, and cloud.
 - Configurable colors, intervals, timeouts, scrolling, and page timing.
@@ -69,12 +70,20 @@ The upper line shows a small TCP or HTTP pictogram, the target, and its result i
 The graph fills the lower half of the available interface area:
 
 - One completed check occupies one pixel column.
-- Successful checks are green by default; bar height is scaled to the largest successful response time in the retained history.
+- Successful bars use a green-to-orange vertical gradient relative to the minimum successful response time in each node’s retained history. Stable values stay green; small fluctuations receive a slight tint, and substantial increases move toward orange. Falling values become greener again. **Full orange increase** (100% by default) sets the minimum relative growth needed to reach orange; when the observed range is larger, its maximum becomes the orange endpoint. Bar heights scale to the largest successful response time in the retained history.
 - Failed checks are full-height red bars.
 - Oldest samples appear on the left; newest samples appear on the right. Once full, the graph drops the oldest sample.
 - With no samples, a dim baseline is shown. With no configured targets, the page displays `--` and `0 targets`.
 
 The graph is drawn directly below the header across the full available width; the sketch uses punctuation only to suggest bars.
+
+### Relative response history in 0.30
+
+Actual device captures with synthetic data. Colors compare successful response times within each node’s retained history, rather than using fixed millisecond thresholds.
+
+| Stable 5 ms | Small 5–6 ms variation | Large 5–50 ms changes |
+| --- | --- | --- |
+| <img src="https://raw.githubusercontent.com/Dr-Dream/AwtrixNetworkMonitor/main/docs/media/graph-relative-flat-device.png" alt="Stable responses remain green" width="280"> | <img src="https://raw.githubusercontent.com/Dr-Dream/AwtrixNetworkMonitor/main/docs/media/graph-relative-jitter-device.png" alt="Small fluctuations receive a slight tint" width="280"> | <img src="https://raw.githubusercontent.com/Dr-Dream/AwtrixNetworkMonitor/main/docs/media/graph-relative-spikes-device.png" alt="Large increases reach orange; failed checks stay red" width="280"> |
 
 ### Optional instance icon
 
@@ -153,6 +162,8 @@ All settings are available in the app's gear menu. Defaults below apply to a new
 | **Page mode** (`mode`) | `auto` | `auto` or `manual`; see controls above. |
 | **Minimum entry duration** (`pagetime`) | 5 s | Minimum time for HOME or one target entry, not an entire target list; 2–30 s. |
 | **Scroll wait limit** (`scrollwait`) | 60 s | Maximum wait per entry; 10–180 s. The effective limit is at least the minimum entry duration. |
+| **Graph gradient** (`graph_gradient`) | On | Green-to-orange vertical gradient for successful history bars. Off uses a solid Success color. |
+| **Full orange increase** (`graph_full_pct`) | 100% | Minimum increase above the retained successful minimum needed for full orange; 10–1000%. Larger values soften the color change. |
 | **Scroll speed** (`scrollspeed`) | 65% | Scrolling speed; 10–300%. Firmware base speed at 100% is 21 pixels/s. |
 | **Scroll gap** (`scrollgap`) | 10 px | Gap between scrolling repeats; 0–100 px. |
 | **Scroll start delay** (`scrollhold`) | 500 ms | Pause before scrolling begins; 0–5000 ms. |
@@ -177,6 +188,7 @@ The history capacity follows the remaining interface width: 52 samples per targe
 
 | Setting | Default | Used for |
 | --- | --- | --- |
+| **Slow graph color** (`color_graph_top`) | `#FF9830` | Gradient color at and above Orange response time. The low-latency endpoint uses Success. |
 | **Success** (`color_ok`) | `#40D080` | Successful results, active OK count, and successful history bars. |
 | **Failure** (`color_fail`) | `#FF4040` | Failed results, alerts, active failure count, and failed history bars. |
 | **Pending** (`color_wait`) | `#FFD040` | Pending results and active pending count. |

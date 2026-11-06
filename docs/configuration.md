@@ -28,3 +28,15 @@ On the TC002's 52×16 panel, the optional identifier has side length `16 - 2 * i
 Version 0.27 compiled and ran as `NetworkCheck` on TC002 firmware 1.2.3. All six icon choices were captured from the 52×16 framebuffer. Left margins and interface separators were blank; no compile/runtime error was reported. WiFi was adjusted to keep all arcs visible throughout its brightness pulse. Original configuration values were restored after the test. Network behavior and compatibility with other firmware versions were not exhaustively tested.
 
 [Device icon captures](icons-device-0.27.png), left to right: house, VPN shield, server, WiFi, database, cloud.
+
+## Graph gradient
+
+`graph_gradient=true` enables a vertical palette from `color_ok` to `color_graph_top` (default `#FF9830`). Each node uses its own retained successful history; failed samples are excluded from the minimum and maximum. TCP/HTTP success still depends on connection/status, not on color.
+
+The baseline is the successful minimum. The color span is the larger of the observed maximum minus that baseline and `baseline * graph_full_pct / 100`. `graph_full_pct` defaults to 100 and accepts 10–1000%. Increasing it softens the color change. A one-millisecond floor protects zero-resolution measurements and division; it is not a network-health threshold.
+
+At default settings, stable 5 ms samples remain green, 5–6 ms variation receives only a slight tint, and a 5–50 ms range reaches orange at the peak. Falling values become greener. The reference adapts when old samples leave the retained history; colors compare values within that window rather than indicating an absolute latency limit.
+
+Bar heights remain autoscaled to the retained maximum. Failed checks remain solid `color_fail` columns. Disabling the gradient restores solid `color_ok` bars. The palette is cached during initialization; drawing allocates no collections.
+
+The relative mapping was compiled and executed in a temporary TC002 demo with synthetic histories. Framebuffer checks confirmed green-only stable samples, a slight tint for small fluctuations, and orange peaks with red failures for large changes. The original source and all stored configuration values were restored and compared exactly. This verifies the demo rendering, not deployment of the complete revised monitoring app.
