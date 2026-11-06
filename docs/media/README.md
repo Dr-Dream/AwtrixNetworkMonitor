@@ -50,3 +50,18 @@ At maximum width, the final row contains exactly one white and 51 gray pixels. P
 ## Single-item layouts
 
 Actual TC002 synthetic-demo captures with indicators enabled: [one NODES host](single-nodes-device.png), [one ALERTS failure](single-alerts-device.png), and the corresponding [NODES](single-nodes-with-icon-device.png) / [ALERTS](single-alerts-with-icon-device.png) layouts with an instance icon. No position mark is drawn. Framebuffer checks confirmed that NODES uses all eight graph rows through row 15, and ALERTS retains its original second-line baseline with the last row blank. Both runs reported no compile or runtime errors. Installed source and every original configuration value were restored and compared exactly afterward.
+
+## Indicator width with an instance icon
+
+Actual TC002 synthetic-demo captures with default icon geometry (36 content columns):
+
+| Item count | NODES | ALERTS |
+| --- | --- | --- |
+| 12 | [NODES](indicator-12-nodes-device.png) | [ALERTS](indicator-12-alerts-device.png) |
+| 36 | [NODES](indicator-36-nodes-device.png) | [ALERTS](indicator-36-alerts-device.png) |
+| 42 | [NODES](indicator-42-nodes-device.png) | [ALERTS](indicator-42-alerts-device.png) |
+| 52 | [NODES](indicator-52-nodes-device.png) | [ALERTS](indicator-52-alerts-device.png) |
+
+[Animated comparison](indicator-ranges-device.gif) shows each pair in ascending count order. All demonstration targets fail so ALERTS and NODES have the same item count. At 12 items, marks remain to the right of the icon. At 42 they span the full bottom row beneath it. At 52, exactly one white and 51 gray pixels were confirmed on both pages. No compile/runtime errors were reported. The original source and every stored configuration value were restored and compared exactly afterward. These demos use synthetic state and disable network polling.
+
+The exact 36-item boundary was also captured on TC002: both pages had 16 blank bottom-row columns beneath the icon and exactly one white/35 gray pixels to its right. No compile/runtime errors were reported; original source and configuration were restored and compared exactly.

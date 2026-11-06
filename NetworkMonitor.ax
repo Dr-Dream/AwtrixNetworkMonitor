@@ -296,8 +296,8 @@ class NetworkMonitor
     end
 
     self.total_count = size(self.nodes)
-    if self.total_count > self.content_width
-      self.config_error = str(self.total_count) + " / " + str(self.content_width) + " max"
+    if self.total_count > width()
+      self.config_error = str(self.total_count) + " / " + str(width()) + " max"
       log("NetworkMonitor: too many targets: " + self.config_error)
       # Reject the complete list rather than silently dropping configured hosts.
       self.nodes = []
@@ -1445,7 +1445,6 @@ class NetworkMonitor
 
     # Graph is rendered below the header.
     self.draw_node_graph(node)
-    self.draw_position_indicator(count, self.node_pos)
   end
 
   # Shared NODES/ALERTS position marks in the final content row.
@@ -1453,14 +1452,17 @@ class NetworkMonitor
     if self.node_indicator && height() > 8 && count > 1
       # Partition the available width evenly; narrow slots become single pixels.
       # Configuration validation guarantees one slot per host.
-      var slots = min(count, self.content_width)
-      var active = position * slots / count
+      # Extend under the instance icon only when the content area is too narrow.
+      var indicator_x = count > self.content_width ? 0 : self.content_x
+      var indicator_width = count > self.content_width ? width() : self.content_width
+      var slots = count
+      var active = position
       var slot = 0
       while slot < slots
-        var left = slot * self.content_width / slots
-        var right = (slot + 1) * self.content_width / slots
+        var left = slot * indicator_width / slots
+        var right = (slot + 1) * indicator_width / slots
         var gap = right - left >= 3 && slots > 1 ? 1 : 0
-        rect_fill(self.content_x + left, height() - 1, right - left - gap, 1,
+        rect_fill(indicator_x + left, height() - 1, right - left - gap, 1,
                   slot == active ? self.color_node_active : self.color_node_idle)
         slot += 1
       end
@@ -1500,7 +1502,6 @@ class NetworkMonitor
       self.color_reason,
       true
     )
-    self.draw_position_indicator(count, self.fail_pos)
   end
 
   # --------------------------------------------------
@@ -1529,6 +1530,12 @@ class NetworkMonitor
       self.draw_home()
     end
     self.draw_instance_icon()
+    # Draw last so the indicator also remains visible beneath edge-sized icons.
+    if self.page == 2 && self.show_nodes
+      self.draw_position_indicator(size(self.node_indexes), self.node_pos)
+    elif self.page == 1
+      self.draw_position_indicator(size(self.fail_indexes), self.fail_pos)
+    end
   end
 end
 
