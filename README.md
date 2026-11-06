@@ -2,7 +2,7 @@
 
 Keep an eye on your network from your AWTRIX NG clock. NetworkMonitor checks TCP services and HTTP endpoints, shows your public IP address, and cycles through a network overview, active failures, and per-host response history.
 
-**Platform:** Ulanzi TC002 · **Display:** 52 × 16 · **Version:** 0.30
+**Platform:** Ulanzi TC002 · **Display:** 52 × 16 · **Version:** 0.31
 
 **Authors:** Dr-Dream / ChatGPT / Codex
 
@@ -53,6 +53,8 @@ The lower counters use the full available interface width; their indentation abo
 +--------------------------------------------------+
 ```
 
+An optional bottom-row indicator shows the current alert in white and other active failures in gray. Its positions refer only to failed targets, in alert order. It uses the same spacing and colors as the NODES indicator, and is enabled by default through **Show page indicators**. With just one failure, the indicator is hidden and the original text position is retained. The second text line moves up one pixel while the indicator is visible.
+
 Only failed targets appear here. The first line shows the target; the second shows the failure reason and its position in the failure list. The upper pictogram and lower cross identify an alert; the cross pulses. The page is skipped when there are no failed targets.
 
 Examples of failure reasons include `HTTP 503`, `Network error`, `timeout`, `refused`, and `dns`; TCP reason strings come from the firmware.
@@ -74,14 +76,15 @@ The graph fills the lower half of the available interface area:
 - One completed check occupies one pixel column.
 - Successful bars use a green-to-orange vertical gradient relative to the minimum successful response time in each node’s retained history. Stable values stay green; small fluctuations receive a slight tint, and substantial increases move toward orange. Falling values become greener again. **Full orange increase** (100% by default) sets the minimum relative growth needed to reach orange; when the observed range is larger, its maximum becomes the orange endpoint. Bar heights scale to the largest successful response time in the retained history.
 - Failed checks are full-height red bars.
+- An optional bottom-row host indicator highlights the current host in white and the others in gray. Slots are distributed evenly across the available interface width, with small gaps where space permits. Each host has its own slot, up to one host per pixel. The combined TCP + HTTP target count must not exceed the available content width (52 without an instance icon; 36 with default icon geometry on TC002). Excess targets reject the entire list and show a Host limit message; checks remain paused until the configuration is corrected. With just one host, the indicator is hidden and the graph keeps its full height. The graph reserves one row only while the indicator is visible. Disable **Show page indicators** to restore the full graph height.
 - Oldest samples appear on the left; newest samples appear on the right. Once full, the graph drops the oldest sample.
 - With no samples, a dim baseline is shown. With no configured targets, the page displays `--` and `0 targets`.
 
 The graph is drawn directly below the header across the full available width; the sketch uses punctuation only to suggest bars.
 
-### Relative response history in 0.30
+### Relative response history
 
-Actual device captures with synthetic data. Colors compare successful response times within each node’s retained history, rather than using fixed millisecond thresholds.
+Earlier actual device captures of the gradient, before the position row was added, with synthetic data. Colors compare successful response times within each node’s retained history, rather than using fixed millisecond thresholds.
 
 | Stable 5 ms | Small 5–6 ms variation | Large 5–50 ms changes |
 | --- | --- | --- |
@@ -164,6 +167,9 @@ All settings are available in the app's gear menu. Defaults below apply to a new
 | **Page mode** (`mode`) | `auto` | `auto` or `manual`; see controls above. |
 | **Minimum entry duration** (`pagetime`) | 5 s | Minimum time for HOME or one target entry, not an entire target list; 2–30 s. |
 | **Scroll wait limit** (`scrollwait`) | 60 s | Maximum wait per entry; 10–180 s. The effective limit is at least the minimum entry duration. |
+| **Show page indicators** (`node_indicator`) | On | Show evenly spaced position marks in the bottom row of NODES and ALERTS when the page has at least two items. Enabled by default. |
+| **Active position indicator** (`color_node_active`) | `#FFFFFF` | Current host or alert mark. |
+| **Other position indicators** (`color_node_idle`) | `#606060` | Other host or alert marks. |
 | **Graph gradient** (`graph_gradient`) | On | Green-to-orange vertical gradient for successful history bars. Off uses a solid Success color. |
 | **Full orange increase** (`graph_full_pct`) | 100% | Minimum increase above the retained successful minimum needed for full orange; 10–1000%. Larger values soften the color change. |
 | **Scroll speed** (`scrollspeed`) | 65% | Scrolling speed; 10–300%. Firmware base speed at 100% is 21 pixels/s. |
@@ -209,13 +215,13 @@ TCP checks test whether a connection can be established. HTTP checks test the fi
 
 No API key or external icon pack is required. Do not include passwords or tokens in monitored URLs: URLs appear on screen and in logs.
 
-Version 0.27 was compiled and run on TC002 with AWTRIX NG 1.2.3. All six instance icons were checked through the device framebuffer. This verification does not cover every network failure mode or firmware version.
+Version 0.27 was compiled and run on TC002 with AWTRIX NG 1.2.3; all six instance icons were checked through the framebuffer. The 0.31 rendering methods were compiled and captured in a synthetic device demo, including ALERTS and NODES indicators with and without an instance icon. Boundary tests accepted 52 targets and rejected 53 without an icon. These tests do not cover every network failure mode, firmware version or deployment of the full revised app.
 
 Complete source: [NetworkMonitor.ax](NetworkMonitor.ax). Implementation details: [architecture](docs/architecture.md).
 
 ## Screenshots and animation
 
-[Downloadable PNG screenshots and animated GIF](docs/media/README.md) include real device captures with temporary demonstration hosts and synthetic promotional scenes. The relative-gradient examples below show the rendering introduced in 0.30; the page-layout captures show 0.27. The original source and configuration were restored after recording.
+[Downloadable PNG screenshots and animated GIF](docs/media/README.md) include real device captures with temporary demonstration hosts and synthetic promotional scenes. The relative-gradient examples below show the rendering introduced in 0.30; the refreshed HOME, ALERTS and NODES captures show a synthetic demo of the 0.31 renderer. The original source and configuration were restored after recording.
 
 Screenshots and animation use a visible LED grid with dark gaps between pixels, preserving the captured pixel layout and lit colors.
 
@@ -245,9 +251,9 @@ Screenshots and animation use a visible LED grid with dark gaps between pixels, 
 
 ### AWTRIX Hub cover
 
-A staged demonstration of HOME and a populated history graph, rendered on the device using synthetic data.
+A staged demonstration of HOME, ALERTS and a populated history graph with position indicators, rendered on the device using synthetic data.
 
-<img src="docs/media/networkmonitor-cover.gif" alt="NetworkMonitor cover showing HOME and response history with failure bars" width="520">
+<img src="docs/media/networkmonitor-cover.gif" alt="NetworkMonitor HOME, ALERTS and relative response history with position indicators" width="520">
 
 ### Animated demonstration
 

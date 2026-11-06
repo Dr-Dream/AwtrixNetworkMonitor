@@ -1,7 +1,7 @@
 # @name    Network-Monitor-TCP-HTTP
 # @desc    TCP, HTTP and public IP monitoring (TC002)
 # @author  Dr-Dream / ChatGPT / Codex
-# @version 0.30
+# @version 0.31
 
 # @needs tcp
 
@@ -30,6 +30,9 @@
 # @config icon_left number "Icon left margin" default=1 min=1 max=4 unit=px group="Icon"
 # @config icon_inset number "Icon inset" default=1 min=0 max=2 unit=px help="Inset on each vertical edge; 1 gives a 14x14 icon on TC002" group="Icon"
 # @config icon_step number "Animation frame duration" default=350 min=100 max=2000 unit=ms group="Icon"
+# @config node_indicator bool "Show page indicators" default=true group="Display"
+# @config color_node_active color "Active position indicator" default=#FFFFFF group="Colors"
+# @config color_node_idle color "Other position indicators" default=#606060 group="Colors"
 # @config graph_gradient bool "Graph gradient" default=true group="Display"
 # @config graph_full_pct number "Full orange increase" default=100 min=10 max=1000 unit=% help="Minimum growth above the history minimum needed for full orange" group="Display"
 # @config color_graph_top color "Slow graph color" default=#FF9830 group="Colors"
@@ -91,6 +94,8 @@ class NetworkMonitor
   var show_icon, icon_kind, icon_color, icon_dim, icon_animate, icon_step_ms
   var icon_lines, icon_dots, icon_left, icon_side, icon_top, content_x, content_width
   var graph_gradient, graph_colors, graph_full_pct
+  var node_indicator, color_node_active, color_node_idle
+  var config_error
   var scroll_opts
 
   # --------------------------------------------------
@@ -127,6 +132,9 @@ class NetworkMonitor
     self.color_dim = store.get("color_dim")
     self.color_reason = store.get("color_reason")
     self.color_empty = store.get("color_empty")
+    self.node_indicator = store.get("node_indicator")
+    self.color_node_active = store.get("color_node_active")
+    self.color_node_idle = store.get("color_node_idle")
     self.graph_gradient = store.get("graph_gradient")
     self.graph_full_pct = int(store.get("graph_full_pct"))
     self.graph_colors = []
@@ -204,6 +212,7 @@ class NetworkMonitor
       "holdMs": int(store.get("scrollhold"))
     }
 
+    self.config_error = ""
     self.load_nodes()
     self.reset_counts()
 
@@ -287,6 +296,14 @@ class NetworkMonitor
     end
 
     self.total_count = size(self.nodes)
+    if self.total_count > self.content_width
+      self.config_error = str(self.total_count) + " / " + str(self.content_width) + " max"
+      log("NetworkMonitor: too many targets: " + self.config_error)
+      # Reject the complete list rather than silently dropping configured hosts.
+      self.nodes = []
+      self.total_count = 0
+      return
+    end
 
     for node : self.nodes
       if node["kind"] == "TCP"
@@ -744,6 +761,7 @@ class NetworkMonitor
   # --------------------------------------------------
 
   def loop()
+    if self.config_error != "" return end
     var now = now_ms()
 
     var complete = now >= self.entry_min &&
@@ -1126,7 +1144,7 @@ class NetworkMonitor
     )
 
     self.scroll_line(1,
-      9, 14, self.content_width - 9,
+      9, (page_icon == "alert" && self.node_indicator && size(self.fail_indexes) > 1 ? 13 : 14), self.content_width - 9,
       line2,
       color2
     )
@@ -1275,7 +1293,8 @@ class NetworkMonitor
 
     # Header uses the first 8 pixel rows.
     var graph_top = 8
-    var graph_height = height() - graph_top
+    var graph_bottom = height() - 1 - (self.node_indicator && size(self.node_indexes) > 1 ? 1 : 0)
+    var graph_height = graph_bottom - graph_top + 1
 
     if graph_height < 1
       return
@@ -1284,7 +1303,7 @@ class NetworkMonitor
     if count == 0
       rect_fill(
         self.content_x,
-        height() - 1,
+        graph_bottom,
         self.content_width,
         1,
         self.color_empty
@@ -1354,11 +1373,11 @@ class NetworkMonitor
             var level = row * max_latency / max(1, graph_height - 1)
             var shade = clamp((level - baseline) * (size(self.graph_colors) - 1) / color_span,
                               0, size(self.graph_colors) - 1)
-            pixel(x, height() - 1 - row, self.graph_colors[shade])
+            pixel(x, graph_bottom - row, self.graph_colors[shade])
             row += 1
           end
         else
-          rect_fill(x, height() - bar_height, 1, bar_height, self.color_ok)
+          rect_fill(x, graph_bottom + 1 - bar_height, 1, bar_height, self.color_ok)
         end
       end
 
@@ -1426,6 +1445,26 @@ class NetworkMonitor
 
     # Graph is rendered below the header.
     self.draw_node_graph(node)
+    self.draw_position_indicator(count, self.node_pos)
+  end
+
+  # Shared NODES/ALERTS position marks in the final content row.
+  def draw_position_indicator(count, position)
+    if self.node_indicator && height() > 8 && count > 1
+      # Partition the available width evenly; narrow slots become single pixels.
+      # Configuration validation guarantees one slot per host.
+      var slots = min(count, self.content_width)
+      var active = position * slots / count
+      var slot = 0
+      while slot < slots
+        var left = slot * self.content_width / slots
+        var right = (slot + 1) * self.content_width / slots
+        var gap = right - left >= 3 && slots > 1 ? 1 : 0
+        rect_fill(self.content_x + left, height() - 1, right - left - gap, 1,
+                  slot == active ? self.color_node_active : self.color_node_idle)
+        slot += 1
+      end
+    end
   end
 
   # --------------------------------------------------
@@ -1461,6 +1500,7 @@ class NetworkMonitor
       self.color_reason,
       true
     )
+    self.draw_position_indicator(count, self.fail_pos)
   end
 
   # --------------------------------------------------
@@ -1470,6 +1510,14 @@ class NetworkMonitor
   def draw()
     clear()
     font("small")
+
+    if self.config_error != ""
+      scroll_text(self.content_x, 6, self.content_width, "Host limit", self.color_fail)
+      if height() > 8
+        scroll_text(self.content_x, 14, self.content_width, self.config_error, self.color_text)
+      end
+      return
+    end
 
     if self.page == 0
       self.draw_home()
