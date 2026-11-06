@@ -3,7 +3,7 @@
 # @author  Dr-Dream / ChatGPT / Codex
 # @version 0.27
 
-# @needs tcpф
+# @needs tcp
 
 # @config tcphosts     text   "TCP hosts"       default="" maxlen=256 hint="example.com:443,192.168.1.1:80" group="Monitoring"
 # @config httphosts    text   "HTTP URLs"       default="" maxlen=512 hint="https://example.com,http://192.168.1.1" group="Monitoring"
