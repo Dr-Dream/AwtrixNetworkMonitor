@@ -1,0 +1,1374 @@
+# @name    NetworkMonitor
+# @desc    TCP, HTTP and public IP monitoring (TC002)
+# @author  ChatGPT
+# @version 0.23
+
+# @needs tcp
+
+# @config tcphosts     text   "TCP hosts"       default="" maxlen=256 hint="example.com:443,192.168.1.1:80" group="Monitoring"
+# @config httphosts    text   "HTTP URLs"       default="" maxlen=512 hint="https://example.com,http://192.168.1.1" group="Monitoring"
+# @config ipurl        text   "Public IP URL" default="http://ifconfig.me" maxlen=256 help="Response must contain only an IP address" group="Monitoring"
+# @config interval     number "Check interval"  default=60 min=30 max=600 unit=s group="Monitoring"
+# @config wanperiod    number "Public IP refresh"     default=300 min=60 max=3600 unit=s group="Monitoring"
+# @config tcp_timeout  number "TCP timeout"     default=4 min=1 max=30 unit=s group="Monitoring"
+# @config http_timeout number "HTTP timeout"    default=5 min=1 max=30 unit=s group="Monitoring"
+# @config show_nodes   bool "Show NODES page" default=true group="Monitoring"
+
+# @config mode         select "Page mode"       default=auto options=auto,manual group="Display"
+# @config scrollwait   number "Scroll wait limit" default=60 min=10 max=180 unit=s group="Display"
+# @config pagetime     number "Minimum entry duration"   default=5 min=2 max=30 unit=s group="Display"
+
+# @config scrollspeed number "Scroll speed" default=65 min=10 max=300 unit=% group="Display"
+# @config scrollgap number "Scroll gap" default=10 min=0 max=100 unit=px group="Display"
+# @config scrollhold number "Scroll start delay" default=500 min=0 max=5000 unit=ms group="Display"
+# @config manualhold number "Hold after knob input" default=20 min=10 max=180 unit=s group="Display"
+# @config manualtime number "Manual display duration" default=30 min=5 max=180 unit=s group="Display"
+# @config color_ok color "Success" default=#40D080 group="Colors"
+# @config color_fail color "Failure" default=#FF4040 group="Colors"
+# @config color_wait color "Pending" default=#FFD040 group="Colors"
+# @config color_info color "TCP icon and activity" default=#40B8E0 group="Colors"
+# @config color_http color "HTTP icon" default=#B080FF group="Colors"
+# @config color_text color "Text" default=#FFFFFF group="Colors"
+# @config color_dim color "Inactive status" default=#888888 group="Colors"
+# @config color_reason color "Failure reason" default=#FF8040 group="Colors"
+# @config color_empty color "Empty history" default=#404040 group="Colors"
+
+import tcp
+
+class NetworkMonitor
+  var nodes
+
+  var busy
+  var scanning
+  var scan_pos
+  var next_scan
+  var next_wan
+  var interval_ms
+  var wanperiod_ms
+  var tcp_timeout_ms
+  var http_timeout
+  var ipurl
+  var show_nodes
+
+  var wan_ip
+  var wan_state
+  var wan_error
+  var wan_last_ok
+
+  var ok_count
+  var fail_count
+  var wait_count
+  var total_count
+  var tcp_count
+  var http_count
+
+  var fail_indexes
+  var node_indexes
+
+  var fail_pos
+  var node_pos
+
+  var mode
+  var pagetime_ms
+  var page
+  var manual_timer
+
+  var visible, held, scrollwait_ms, entry_min, entry_max
+  var strip_labels, strip_counts, strip_done, strip_widths, strip_targets
+  var home_ip, home_summary, home_counters, counters_key
+  var manualhold_ms, manualtime_ms, historysize
+  var color_ok, color_fail, color_wait, color_info, color_http, color_text, color_dim, color_reason, color_empty
+  var scroll_opts
+
+  # --------------------------------------------------
+  # Initialization
+  # --------------------------------------------------
+
+  def init()
+    self.manualhold_ms = int(store.get("manualhold")) * 1000
+    self.manualtime_ms = int(store.get("manualtime")) * 1000
+    self.historysize = width()
+    self.color_ok = store.get("color_ok")
+    self.color_fail = store.get("color_fail")
+    self.color_wait = store.get("color_wait")
+    self.color_info = store.get("color_info")
+    self.color_http = store.get("color_http")
+    self.color_text = store.get("color_text")
+    self.color_dim = store.get("color_dim")
+    self.color_reason = store.get("color_reason")
+    self.color_empty = store.get("color_empty")
+    self.visible = false
+    self.held = false
+    self.scrollwait_ms = int(store.get("scrollwait")) * 1000
+    self.strip_widths = [-1, -1]
+    self.strip_targets = [1, 1]
+    self.strip_labels = [nil, nil]
+    self.strip_counts = [0, 0]
+    self.strip_done = [false, false]
+    self.entry_min = 0
+    self.entry_max = 0
+    self.counters_key = nil
+    self.nodes = []
+
+    self.busy = false
+    self.scanning = false
+    self.scan_pos = 0
+
+    self.interval_ms = int(store.get("interval")) * 1000
+    self.wanperiod_ms = int(store.get("wanperiod")) * 1000
+
+    # User settings are in seconds.
+    # TCP API expects milliseconds; HTTP API expects seconds.
+    self.tcp_timeout_ms = int(store.get("tcp_timeout")) * 1000
+    self.http_timeout = int(store.get("http_timeout"))
+
+    self.ipurl = store.get("ipurl")
+    self.show_nodes = store.get("show_nodes")
+
+    self.wan_ip = "--"
+    self.wan_state = "WAIT"
+    self.wan_error = ""
+    self.wan_last_ok = 0
+
+    self.ok_count = 0
+    self.fail_count = 0
+    self.wait_count = 0
+    self.total_count = 0
+    self.tcp_count = 0
+    self.http_count = 0
+
+    self.fail_indexes = []
+    self.node_indexes = []
+
+    self.fail_pos = 0
+    self.node_pos = 0
+
+    self.mode = store.get("mode")
+    self.pagetime_ms = int(store.get("pagetime")) * 1000
+    self.page = 0
+    self.manual_timer = nil
+
+    self.scroll_opts = {
+      "mode": "wrap",
+      "direction": "left",
+      "entry": "inline",
+      "whenFits": "static",
+      "speed": int(store.get("scrollspeed")),
+      "gap": int(store.get("scrollgap")),
+      "holdMs": int(store.get("scrollhold"))
+    }
+
+    self.load_nodes()
+    self.reset_counts()
+
+    var now = now_ms()
+    self.next_scan = now
+    self.next_wan = now
+    self.reset_entry()
+
+    log("NetworkMonitor: TCP timeout " +
+        str(self.tcp_timeout_ms) + "ms")
+    log("NetworkMonitor: HTTP timeout " +
+        str(self.http_timeout) + "s")
+    log("NetworkMonitor: NODES page " +
+        (self.show_nodes ? "enabled" : "disabled"))
+  end
+
+  # --------------------------------------------------
+  # Configuration
+  # --------------------------------------------------
+
+  def load_nodes()
+    var raw_tcp = store.get("tcphosts")
+    var raw_http = store.get("httphosts")
+
+    var parts = re.matchall("[^,]+", raw_tcp)
+
+    for part : parts
+      if re.search("^\\s*$", part) == nil
+        var m = re.search("^\\s*(\\S+):(\\d+)\\s*$", part)
+
+        if m != nil
+          var host = m[1]
+          var port = int(m[2])
+
+          if port > 0 && port <= 65535 && size(host) <= 253
+            self.nodes.push({
+              "kind": "TCP",
+              "target": host + ":" + str(port),
+              "host": host,
+              "port": port,
+              "state": "WAIT",
+              "latency": -1,
+              "reason": "",
+              "started": 0,
+              "handle": nil,
+              "history": [],
+            "checking": false,
+            "display_key": nil
+            })
+          else
+            log("NetworkMonitor: invalid TCP entry: " + part)
+          end
+        else
+          log("NetworkMonitor: invalid TCP entry: " + part)
+        end
+      end
+    end
+
+    parts = re.matchall("[^,]+", raw_http)
+
+    for part : parts
+      if re.search("^\\s*$", part) == nil
+        var m = re.search("^\\s*(https?://\\S+)\\s*$", part)
+
+        if m != nil
+          self.nodes.push({
+            "kind": "HTTP",
+            "target": m[1],
+            "state": "WAIT",
+            "latency": -1,
+            "reason": "",
+            "started": 0,
+            "history": [],
+            "checking": false,
+            "display_key": nil
+          })
+        else
+          log("NetworkMonitor: invalid HTTP entry: " + part)
+        end
+      end
+    end
+
+    self.total_count = size(self.nodes)
+
+    for node : self.nodes
+      if node["kind"] == "TCP"
+        self.tcp_count += 1
+      else
+        self.http_count += 1
+      end
+    end
+
+    log("NetworkMonitor: total targets " + str(self.total_count))
+    log("NetworkMonitor: TCP targets " + str(self.tcp_count))
+    log("NetworkMonitor: HTTP targets " + str(self.http_count))
+  end
+
+  # --------------------------------------------------
+  # Per-node history
+  # --------------------------------------------------
+
+  def record_sample(index, state, latency)
+    var node = self.nodes[index]
+    var history = node["history"]
+
+    var sample = latency
+
+    if state != "OK"
+      sample = -1
+    end
+
+    history.push(sample)
+    if size(history) > self.historysize history.remove(0) end
+
+    log(
+      "HISTORY " + node["target"] +
+      ": " + str(size(node["history"])) + "/" + str(self.historysize) +
+      ", state=" + state +
+      ", latency=" + str(sample)
+    )
+  end
+
+  # --------------------------------------------------
+  # Dynamic node timing
+  # --------------------------------------------------
+
+  def node_display_text(node)
+    var result = "--"
+
+    if node["state"] == "OK" && node["latency"] >= 0
+      result = str(node["latency"]) + "ms"
+    elif node["state"] == "FAIL"
+      result = "ERR"
+    end
+
+    if node["checking"] result += " ..." end
+    return node["target"] + " " + result
+  end
+
+  # Use the API completion count rather than estimating scroll duration.
+  def reset_entry()
+    self.strip_labels[0] = nil
+    self.strip_labels[1] = nil
+    self.strip_done[0] = false
+    self.strip_done[1] = height() <= 8 || self.page == 2
+    self.entry_min = now_ms() + self.pagetime_ms
+    self.entry_max = now_ms() + max(self.scrollwait_ms, self.pagetime_ms)
+  end
+
+  # --------------------------------------------------
+  # Page timing and navigation
+  # Page order:
+  # 0 = HOME
+  # 1 = ALERTS
+  # 2 = NODES (optional)
+  # --------------------------------------------------
+
+  def next_page()
+    # HOME -> ALERTS (if failures) -> NODES (if enabled) -> HOME
+    # ALERTS is skipped when there are no failures.
+
+    if self.page == 0
+      if self.fail_count > 0
+        self.page = 1
+      elif self.show_nodes
+        self.page = 2
+      else
+        self.page = 0
+      end
+
+    elif self.page == 1
+      if self.show_nodes
+        self.page = 2
+      else
+        self.page = 0
+      end
+
+    elif self.page == 2
+      self.page = 0
+
+    else
+      self.page = 0
+    end
+
+    if self.mode == "auto" && self.visible && self.page == 0
+      self.held = false
+      rotation.resume()
+      rotation.next()
+      return
+    end
+
+    self.fail_pos = 0
+    self.node_pos = 0
+
+    self.reset_entry()
+  end
+
+  # --------------------------------------------------
+  # State
+  # --------------------------------------------------
+
+  def reset_counts()
+    self.ok_count = 0
+    self.fail_count = 0
+    self.wait_count = 0
+
+    self.fail_indexes = []
+    self.node_indexes = []
+
+    var i = 0
+
+    for node : self.nodes
+      self.node_indexes.push(i)
+      var label = self.node_display_text(node)
+      if node["display_key"] != label
+        node["display_key"] = label
+        node["label"] = label
+        var result = node["state"] == "FAIL" ? "ERR" : "--"
+        if node["state"] == "OK" result = str(node["latency"]) + "ms" end
+        if node["checking"] result += " ..." end
+        var result_color = self.color_wait
+        if node["state"] == "OK" result_color = self.color_ok end
+        if node["state"] == "FAIL" result_color = self.color_fail end
+        node["title"] = [[node["target"] + " ", self.color_text],
+                         [result, result_color]]
+      end
+
+      if node["state"] == "OK"
+        self.ok_count += 1
+      elif node["state"] == "FAIL"
+        self.fail_count += 1
+        self.fail_indexes.push(i)
+      else
+        self.wait_count += 1
+      end
+
+      i += 1
+    end
+
+    var pos = 0
+    for index : self.fail_indexes
+      self.nodes[index]["alert"] = self.nodes[index]["reason"] + "  " + str(pos + 1) + "/" + str(size(self.fail_indexes))
+      self.nodes[index]["compact_alert"] = self.nodes[index]["target"] + " " + self.nodes[index]["alert"]
+      pos += 1
+    end
+    self.prepare_home()
+    if self.page == 1 && self.fail_count == 0
+      self.next_page()
+    end
+
+    if size(self.fail_indexes) > 0
+      self.fail_pos = self.fail_pos % size(self.fail_indexes)
+    else
+      self.fail_pos = 0
+    end
+
+    if size(self.node_indexes) > 0
+      self.node_pos = self.node_pos % size(self.node_indexes)
+    else
+      self.node_pos = 0
+    end
+  end
+
+  def begin_scan()
+    self.scanning = true
+    self.scan_pos = 0
+
+    log("NetworkMonitor: scan started")
+  end
+
+  def finish_scan()
+    self.scanning = false
+    self.next_scan = now_ms() + self.interval_ms
+
+    self.reset_counts()
+
+    log("NetworkMonitor: scan finished")
+  end
+
+  # --------------------------------------------------
+  # HTTP checks
+  # --------------------------------------------------
+
+  def start_http(index)
+    var node = self.nodes[index]
+    node["started"] = now_ms()
+    node["checking"] = true
+    self.reset_counts()
+
+    self.busy = true
+
+    try
+      http.get(
+        node["target"],
+        / body, status -> self.http_result(index, body, status),
+        {"timeout": self.http_timeout, "cap": 64}
+      )
+    except .. as err, msg
+      node["state"] = "FAIL"
+      node["reason"] = str(msg)
+      node["latency"] = -1
+
+      self.record_sample(index, "FAIL", -1)
+
+      node["checking"] = false
+      self.busy = false
+      self.reset_counts()
+
+      log("HTTP start error: " + str(msg))
+    end
+  end
+
+  def http_result(index, body, status)
+    var node = self.nodes[index]
+    node["latency"] = now_ms() - node["started"]
+
+    if status >= 200 && status < 300
+      node["state"] = "OK"
+      node["reason"] = ""
+    else
+      node["state"] = "FAIL"
+
+      if status == 0
+        node["reason"] = "Network error"
+      else
+        node["reason"] = "HTTP " + str(status)
+      end
+    end
+
+    self.record_sample(
+      index,
+      node["state"],
+      node["latency"]
+    )
+
+    log("HTTP " + node["target"] + ": " +
+        node["state"] + " (" + str(status) + ")")
+
+    node["checking"] = false
+    self.busy = false
+    self.reset_counts()
+  end
+
+  # --------------------------------------------------
+  # TCP checks
+  # --------------------------------------------------
+
+  def start_tcp(index)
+    var node = self.nodes[index]
+    node["started"] = now_ms()
+    node["checking"] = true
+    self.reset_counts()
+
+    self.busy = true
+
+    try
+      var handle = tcp.connect(
+        node["host"],
+        node["port"],
+        / event, data -> self.tcp_result(index, event, data),
+        {"timeout": self.tcp_timeout_ms}
+      )
+
+      node["handle"] = handle
+
+      if handle == nil
+        node["state"] = "FAIL"
+        node["reason"] = "Connection limit"
+        node["latency"] = -1
+
+        self.record_sample(index, "FAIL", -1)
+
+        node["checking"] = false
+        self.busy = false
+        self.reset_counts()
+      end
+
+    except .. as err, msg
+      node["state"] = "FAIL"
+      node["reason"] = str(msg)
+      node["latency"] = -1
+
+      self.record_sample(index, "FAIL", -1)
+
+      node["checking"] = false
+      self.busy = false
+      self.reset_counts()
+
+      log("TCP start error: " + str(msg))
+    end
+  end
+
+  def tcp_result(index, event, data)
+    var node = self.nodes[index]
+
+    if !node["checking"] return end
+
+    if event == "open"
+      node["state"] = "OK"
+      node["reason"] = ""
+      node["latency"] = now_ms() - node["started"]
+
+      self.record_sample(
+        index,
+        "OK",
+        node["latency"]
+      )
+
+      var handle = node["handle"]
+      node["handle"] = nil
+
+      if handle != nil
+        tcp.close(handle)
+      end
+
+      log("TCP " + node["target"] + ": OK")
+
+      node["checking"] = false
+      self.busy = false
+      self.reset_counts()
+
+    elif event == "close"
+      if node["checking"]
+        node["state"] = "FAIL"
+        node["reason"] = str(data)
+        node["latency"] = now_ms() - node["started"]
+
+        self.record_sample(
+          index,
+          "FAIL",
+          -1
+        )
+
+        log("TCP " + node["target"] + ": FAIL")
+      end
+
+      node["handle"] = nil
+      node["checking"] = false
+      self.busy = false
+      self.reset_counts()
+    end
+  end
+
+  # --------------------------------------------------
+  # WAN
+  # --------------------------------------------------
+
+  def start_wan()
+    self.busy = true
+    self.wan_state = "CHECK"
+    self.prepare_home()
+
+    try
+      http.get(
+        self.ipurl,
+        / body, status -> self.wan_result(body, status),
+        {"timeout": self.http_timeout, "cap": 64,
+         "headers": {"Accept": "text/plain"}}
+      )
+    except .. as err, msg
+      self.wan_state = "FAIL"
+      self.wan_error = str(msg)
+
+      self.busy = false
+      self.next_wan = now_ms() + self.wanperiod_ms
+
+      self.prepare_home()
+      log("WAN request error: " + str(msg))
+    end
+  end
+
+  # Accept IPv4 and IPv6, including embedded IPv4; reject HTML.
+  def valid_ip(value)
+    var v4 = re.search("^(\\d+)\\.(\\d+)\\.(\\d+)\\.(\\d+)$", value)
+    if v4 != nil
+      for part : re.matchall("\\d+", value)
+        if size(part) > 3 || int(part) > 255 return false end
+      end
+      return true
+    end
+    var tail = re.search("(\\d+\\.\\d+\\.\\d+\\.\\d+)$", value)
+    var groups = 0
+    var address = value
+    if tail != nil
+      if !self.valid_ip(tail[1]) return false end
+      # Normalize only for validation; preserve the displayed address.
+      var prefix = re.search("^(.*:)\\d+\\.\\d+\\.\\d+\\.\\d+$", value)
+      if prefix == nil return false end
+      address = prefix[1] + "0:0"
+    end
+    var compressed = re.search("^([0-9a-fA-F]+(:[0-9a-fA-F]+)*)?::([0-9a-fA-F]+(:[0-9a-fA-F]+)*)?$", address)
+    if compressed == nil && re.search("^[0-9a-fA-F]+(:[0-9a-fA-F]+)*$", address) == nil
+      return false
+    end
+    for part : re.matchall("[0-9a-fA-F]+", address)
+      if size(part) > 4 return false end
+      groups += 1
+    end
+    return compressed != nil ? groups < 8 : groups == 8
+  end
+
+  def wan_result(body, status)
+    var m = nil
+
+    if status >= 200 && status < 300 && body != nil
+      m = re.search("^\\s*(\\S+)\\s*$", body)
+      if m != nil && !self.valid_ip(m[1]) m = nil end
+    end
+
+    if m != nil
+      self.wan_ip = m[1]
+      self.wan_state = "OK"
+      self.wan_error = ""
+      self.wan_last_ok = now_ms()
+
+      log("WAN IP: " + self.wan_ip)
+    else
+      self.wan_state = "FAIL"
+
+      if status == 0
+        self.wan_error = "Network error"
+      elif status >= 200 && status < 300
+        self.wan_error = "Invalid IP response"
+      else
+        self.wan_error = "HTTP " + str(status)
+      end
+
+      log("WAN request failed: " + self.wan_error)
+    end
+
+    self.busy = false
+    self.next_wan = now_ms() + self.wanperiod_ms
+    self.prepare_home()
+  end
+
+  # --------------------------------------------------
+  # Main loop
+  # --------------------------------------------------
+
+  def loop()
+    var now = now_ms()
+
+    var complete = now >= self.entry_min &&
+                   ((self.strip_done[0] && self.strip_done[1]) || now >= self.entry_max)
+    if self.visible && complete
+      if self.page == 2 && self.node_pos + 1 < size(self.node_indexes)
+        self.node_pos += 1
+        self.reset_entry()
+      elif self.page == 1 && self.fail_pos + 1 < size(self.fail_indexes)
+        self.fail_pos += 1
+        self.reset_entry()
+      elif self.mode == "auto"
+        self.next_page()
+      else
+        # Repeat entries on the same page in manual mode.
+        self.node_pos = 0
+        self.fail_pos = 0
+        self.reset_entry()
+      end
+    end
+
+    if self.busy
+      return
+    end
+
+    if now >= self.next_wan
+      self.start_wan()
+      return
+    end
+
+    if !self.scanning && now >= self.next_scan
+      self.begin_scan()
+    end
+
+    if !self.scanning
+      return
+    end
+
+    if self.scan_pos >= size(self.nodes)
+      self.finish_scan()
+      return
+    end
+
+    var index = self.scan_pos
+    self.scan_pos += 1
+
+    var node = self.nodes[index]
+
+    if node["kind"] == "HTTP"
+      self.start_http(index)
+    elif node["kind"] == "TCP"
+      self.start_tcp(index)
+    end
+  end
+
+  # --------------------------------------------------
+  # Lifecycle
+  # --------------------------------------------------
+
+  def duration()
+    return self.mode == "manual" ? self.manualtime_ms : self.pagetime_ms
+  end
+
+  def on_show()
+    self.visible = true
+    self.page = 0
+    self.fail_pos = 0
+    self.node_pos = 0
+    self.reset_entry()
+    if self.mode == "auto"
+      self.held = true
+      rotation.pause()
+    end
+  end
+
+  def on_hide()
+    self.visible = false
+    if self.held
+      self.held = false
+      rotation.resume()
+    end
+    if self.manual_timer != nil
+      timer.cancel(self.manual_timer)
+      self.manual_timer = nil
+      rotation.resume()
+    end
+  end
+
+  # --------------------------------------------------
+  # Navigation
+  # --------------------------------------------------
+
+  def on_knob(ev)
+    if self.mode != "manual"
+      return false
+    end
+
+    if ev != "left" && ev != "right"
+      return false
+    end
+
+    if ev == "right"
+      # HOME -> ALERTS (if failures) -> NODES (if enabled) -> HOME.
+
+      if self.page == 0
+        if self.fail_count > 0
+          self.page = 1
+        elif self.show_nodes
+          self.page = 2
+        else
+          self.page = 0
+        end
+
+      elif self.page == 1
+        if self.show_nodes
+          self.page = 2
+        else
+          self.page = 0
+        end
+
+      elif self.page == 2
+        self.page = 0
+      end
+
+    else
+      # Reverse order:
+      # HOME <- ALERTS <- NODES <- HOME.
+
+      if self.page == 0
+        if self.show_nodes
+          self.page = 2
+        elif self.fail_count > 0
+          self.page = 1
+        else
+          self.page = 0
+        end
+
+      elif self.page == 1
+        self.page = 0
+
+      elif self.page == 2
+        if self.fail_count > 0
+          self.page = 1
+        else
+          self.page = 0
+        end
+      end
+    end
+
+
+    self.fail_pos = 0
+    self.node_pos = 0
+    self.reset_entry()
+
+    rotation.pause()
+
+    if self.manual_timer != nil
+      timer.cancel(self.manual_timer)
+    end
+
+    self.manual_timer = timer.after(self.manualhold_ms, def ()
+      self.manual_timer = nil
+      rotation.resume()
+      rotation.next()
+    end)
+    if self.manual_timer == nil
+      rotation.resume()
+    end
+
+    return true
+  end
+
+  def on_button(btn)
+    if btn == "select"
+      self.next_scan = now_ms()
+      self.next_wan = now_ms()
+      if self.held rotation.pause() end
+      return true
+    end
+    return false
+  end
+
+  # --------------------------------------------------
+  # Display helpers
+  # --------------------------------------------------
+
+  def px(x, y, color)
+    rect_fill(x, y, 1, 1, color)
+  end
+
+  # --------------------------------------------------
+  # Page icons
+  # --------------------------------------------------
+
+  def draw_page_icon(kind, color)
+    if kind == "home"
+      self.px(1, 3, color)
+      self.px(2, 2, color)
+      self.px(3, 1, color)
+      self.px(4, 2, color)
+      self.px(5, 3, color)
+      self.px(2, 4, color)
+      self.px(2, 5, color)
+      self.px(3, 4, color)
+      self.px(4, 4, color)
+      self.px(4, 5, color)
+
+    elif kind == "nodes"
+      self.px(1, 1, color)
+      self.px(2, 2, color)
+      self.px(3, 3, color)
+      self.px(4, 2, color)
+      self.px(5, 1, color)
+      self.px(1, 4, color)
+      self.px(2, 4, color)
+      self.px(4, 4, color)
+      self.px(5, 4, color)
+
+    elif kind == "alert"
+      # Shift ALERTS icon 1 pixel right and 1 pixel down.
+      self.px(4, 1, color)
+      self.px(3, 2, color)
+      self.px(5, 2, color)
+      self.px(2, 3, color)
+      self.px(6, 3, color)
+      self.px(1, 4, color)
+      self.px(7, 4, color)
+      self.px(2, 5, color)
+      self.px(6, 5, color)
+      self.px(3, 6, color)
+      self.px(4, 6, color)
+      self.px(5, 6, color)
+      self.px(4, 3, color)
+      self.px(4, 4, color)
+    end
+  end
+
+  # --------------------------------------------------
+  # Status indicators
+  # --------------------------------------------------
+
+  def draw_status_icon(state, pulse)
+    if height() <= 8 return end
+    var color = self.color_dim
+
+    if state == "OK"
+      color = self.color_ok
+
+      self.px(1, 10, color)
+      self.px(2, 11, color)
+      self.px(3, 12, color)
+      self.px(4, 11, color)
+      self.px(5, 10, color)
+
+    elif state == "FAIL"
+      # Center the cross below the ALERTS icon at column 4.
+      color = self.color_fail
+
+      self.px(2, 9, color)
+      self.px(3, 10, color)
+      self.px(4, 11, color)
+      self.px(5, 12, color)
+      self.px(6, 13, color)
+      self.px(6, 9, color)
+      self.px(5, 10, color)
+      self.px(3, 12, color)
+      self.px(2, 13, color)
+
+    elif state == "CHECK"
+      color = self.color_info
+
+      self.px(3, 9, color)
+      self.px(2, 10, color)
+      self.px(4, 10, color)
+      self.px(1, 11, color)
+      self.px(5, 11, color)
+      self.px(2, 12, color)
+      self.px(4, 12, color)
+      self.px(3, 13, color)
+
+    elif state == "WAIT"
+      color = self.color_wait
+
+      self.px(2, 10, color)
+      self.px(3, 10, color)
+      self.px(4, 10, color)
+      self.px(2, 11, color)
+      self.px(4, 11, color)
+      self.px(2, 12, color)
+      self.px(3, 12, color)
+      self.px(4, 12, color)
+    end
+
+    if pulse && (int(now_ms() / 350) % 2) == 0
+      rect_fill(state == "FAIL" ? 2 : 1, 9, 5, 5, 0x000000)
+    end
+  end
+
+  # --------------------------------------------------
+  # Text layout
+  # --------------------------------------------------
+
+  def scroll_line(slot, x, y, w, label, color)
+    var runs = scroll_text(x, y, w, label, color, self.scroll_opts)
+    if self.strip_labels[slot] != label
+      var ink_width = text_ink_width(label)
+      # Equal-width replacements inherit their predecessor's scroll phase.
+      # The next boundary can be partial; require one full pass after it.
+      self.strip_targets[slot] = ink_width == self.strip_widths[slot] ? 2 : 1
+      self.strip_widths[slot] = ink_width
+      self.strip_labels[slot] = label
+      self.strip_counts[slot] = runs
+      self.strip_done[slot] = ink_width <= w
+    elif runs - self.strip_counts[slot] >= self.strip_targets[slot]
+      self.strip_done[slot] = true
+    end
+  end
+
+  def draw_two_lines(page_icon, state, line1, line2,
+                     color1, color2, pulse)
+
+    self.draw_page_icon(page_icon, color1)
+    self.draw_status_icon(state, pulse)
+
+    self.scroll_line(0,
+      9, 6, width() - 9,
+      line1,
+      color1
+    )
+
+    self.scroll_line(1,
+      9, 14, width() - 9,
+      line2,
+      color2
+    )
+  end
+
+  def draw_one_line(page_icon, state, line, color, pulse)
+    self.draw_page_icon(page_icon, color)
+
+    # HOME no longer displays the lower status icon.
+    if page_icon != "home"
+      self.draw_status_icon(state, pulse)
+    end
+
+    if state == "FAIL"
+      if (int(now_ms() / 350) % 2) == 0
+        rect_fill(1, 1, 5, 5, 0x000000)
+      end
+    end
+
+    self.scroll_line(0,
+      9, 6, width() - 9,
+      line,
+      color
+    )
+  end
+
+  # --------------------------------------------------
+  # HOME
+  # --------------------------------------------------
+
+  def prepare_home()
+    var ok_color = self.color_dim
+    var fail_color = self.color_dim
+    var wait_color = self.color_dim
+
+    if self.ok_count > 0
+      ok_color = self.color_ok
+    end
+
+    if self.fail_count > 0
+      fail_color = self.color_fail
+    end
+
+    if self.wait_count > 0
+      wait_color = self.color_wait
+    end
+
+    self.home_summary = str(self.ok_count) + "/" + str(self.fail_count) + "/" + str(self.wait_count)
+    if self.counters_key != self.home_summary
+      self.counters_key = self.home_summary
+      self.home_counters = [
+        [str(self.ok_count), ok_color], [" / ", self.color_text],
+        [str(self.fail_count), fail_color], [" / ", self.color_text],
+        [str(self.wait_count), wait_color]
+      ]
+    end
+    self.home_ip = self.wan_ip
+    if self.wan_last_ok == 0
+      self.home_ip = self.wan_state == "FAIL" ? "!" : "..."
+    elif self.wan_state == "FAIL"
+      self.home_ip += " !"
+    elif self.wan_state == "CHECK"
+      self.home_ip += " ..."
+    end
+    self.home_summary = self.home_ip + " " + self.home_summary
+  end
+
+  def draw_home()
+    var color = self.color_text
+    var state = "OK"
+
+    if self.wan_state == "FAIL"
+      color = self.color_fail
+      state = "FAIL"
+    elif self.wan_state == "CHECK"
+      color = self.color_info
+      state = "CHECK"
+    end
+
+    if height() <= 8
+      self.draw_one_line(
+        "home",
+        state,
+        self.home_summary,
+        color,
+        state == "FAIL" || state == "CHECK"
+      )
+      return
+    end
+
+    # HOME: no lower status icon.
+    self.draw_page_icon("home", color)
+
+    self.scroll_line(0,
+      9, 6, width() - 9,
+      self.home_ip,
+      color
+    )
+
+    self.scroll_line(1, 0, 14, width(), self.home_counters, self.color_text)
+  end
+
+  # --------------------------------------------------
+  # NODES protocol icons
+  # --------------------------------------------------
+
+  def draw_protocol_icon(kind)
+    var color = self.color_info
+
+    # Shift protocol icon 1 pixel right and 1 pixel down.
+    if kind == "TCP"
+      self.px(1, 3, color)
+      self.px(2, 2, color)
+      self.px(2, 4, color)
+      self.px(3, 3, color)
+      self.px(4, 3, color)
+      self.px(5, 2, color)
+      self.px(5, 4, color)
+      self.px(6, 3, color)
+
+    elif kind == "HTTP"
+      color = self.color_http
+
+      self.px(3, 1, color)
+      self.px(4, 1, color)
+      self.px(2, 2, color)
+      self.px(5, 2, color)
+      self.px(1, 3, color)
+      self.px(3, 3, color)
+      self.px(4, 3, color)
+      self.px(6, 3, color)
+      self.px(2, 4, color)
+      self.px(5, 4, color)
+      self.px(3, 5, color)
+      self.px(4, 5, color)
+    end
+  end
+
+  # --------------------------------------------------
+  # NODES graph
+  # --------------------------------------------------
+
+  def draw_node_graph(node)
+    var history = node["history"]
+    var count = size(history)
+
+    # Header uses the first 8 pixel rows.
+    var graph_top = 8
+    var graph_height = height() - graph_top
+
+    if graph_height < 1
+      return
+    end
+
+    if count == 0
+      rect_fill(
+        0,
+        height() - 1,
+        width(),
+        1,
+        self.color_empty
+      )
+      return
+    end
+
+    # Find maximum successful latency.
+    var max_latency = 1
+    var i = 0
+
+    while i < count
+      var sample = history[i]
+
+      if sample > max_latency
+        max_latency = sample
+      end
+
+      i += 1
+    end
+
+
+    # One sample per pixel column across the full panel width.
+    # Oldest sample left, newest sample right.
+    # Incomplete history grows from left to right.
+
+    i = 0
+
+    while i < count
+      var sample = history[i]
+      var x = i
+
+      if sample < 0
+        rect_fill(
+          x,
+          graph_top,
+          1,
+          graph_height,
+          self.color_fail
+        )
+      else
+        var bar_height = int(
+          sample * graph_height / max_latency
+        )
+
+        if bar_height < 1
+          bar_height = 1
+        end
+
+        if bar_height > graph_height
+          bar_height = graph_height
+        end
+
+        rect_fill(
+          x,
+          height() - bar_height,
+          1,
+          bar_height,
+          self.color_ok
+        )
+      end
+
+      i += 1
+    end
+  end
+
+  # --------------------------------------------------
+  # NODES
+  # --------------------------------------------------
+
+  def draw_nodes()
+    var count = size(self.node_indexes)
+
+    if count == 0
+      if height() <= 8
+        self.draw_one_line(
+          "nodes", "WAIT", "--",
+          self.color_wait, false
+        )
+      else
+        self.draw_two_lines(
+          "nodes", "WAIT",
+          "--", "0 targets",
+          self.color_wait, self.color_wait, false
+        )
+      end
+
+      return
+    end
+
+    var index = self.node_indexes[self.node_pos]
+    var node = self.nodes[index]
+
+    var color = self.color_wait
+    var state = "WAIT"
+
+    if node["state"] == "OK"
+      color = self.color_ok
+      state = "OK"
+    elif node["state"] == "FAIL"
+      color = self.color_fail
+      state = "FAIL"
+    end
+
+    if height() <= 8
+      self.draw_one_line(
+        "nodes",
+        state,
+        node["title"],
+        color,
+        state == "FAIL"
+      )
+      return
+    end
+
+    # Protocol icon on the left.
+    self.draw_protocol_icon(node["kind"])
+
+    self.scroll_line(0,
+      8, 6, width() - 8,
+      node["title"],
+      self.color_text
+    )
+
+    # Graph is rendered below the header.
+    self.draw_node_graph(node)
+  end
+
+  # --------------------------------------------------
+  # ALERTS
+  # --------------------------------------------------
+
+  def draw_alerts()
+    var count = size(self.fail_indexes)
+
+    if count == 0
+      self.draw_home()
+      return
+    end
+
+    var index = self.fail_indexes[self.fail_pos]
+    var node = self.nodes[index]
+
+    if height() <= 8
+      self.draw_one_line(
+        "alert", "FAIL",
+        node["compact_alert"],
+        self.color_fail, true
+      )
+      return
+    end
+
+    self.draw_two_lines(
+      "alert",
+      "FAIL",
+      node["target"],
+      node["alert"],
+      self.color_fail,
+      self.color_reason,
+      true
+    )
+  end
+
+  # --------------------------------------------------
+  # Rendering
+  # --------------------------------------------------
+
+  def draw()
+    clear()
+    font("small")
+
+    if self.page == 0
+      self.draw_home()
+    elif self.page == 1
+      self.draw_alerts()
+    elif self.page == 2 && self.show_nodes
+      self.draw_nodes()
+    else
+      self.draw_home()
+    end
+  end
+end
+
+return NetworkMonitor()
