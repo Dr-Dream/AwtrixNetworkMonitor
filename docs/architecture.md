@@ -1,4 +1,4 @@
-# NetworkMonitor 0.27 architecture
+# NetworkMonitor 0.32 architecture
 
 One Berry class in `NetworkMonitor.ax`. The required `tcp` module is documented as TC002-only. The app adds no shared modules or background apps and does not change device settings.
 

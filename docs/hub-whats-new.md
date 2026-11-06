@@ -1,4 +1,4 @@
-# What’s new in 0.31
+# What’s new in 0.32
 
 - Added bottom-row position indicators to **NODES and ALERTS**, enabled by default. The current item is white; other items are gray. NODES shows all hosts, while ALERTS shows only active failures. With just one item on a page, its indicator is hidden and the original graph height or text position is retained.
 - Marks are distributed evenly across the available width, becoming one pixel per item at maximum capacity. Colors are configurable; disable **Show page indicators** to restore the previous layout.
