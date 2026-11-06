@@ -196,3 +196,35 @@ No API key or external icon pack is required. Do not include passwords or tokens
 Version 0.27 was compiled and run on TC002 with AWTRIX NG 1.2.3. All six instance icons were checked through the device framebuffer. This verification does not cover every network failure mode or firmware version.
 
 Complete source: [NetworkMonitor.ax](NetworkMonitor.ax). Implementation details: [architecture](docs/architecture.md).
+
+## Screenshots and animation
+
+[Downloadable PNG screenshots and animated GIF](docs/media/README.md) show real device captures made with temporary demonstration hosts. The original host configuration was restored after recording.
+
+### HOME
+
+| Without instance icon | With instance icon |
+| --- | --- |
+| <img src="docs/media/home.png" alt="HOME without an instance icon" width="416"> | <img src="docs/media/home-with-icon.png" alt="HOME with an instance icon" width="416"> |
+
+### ALERTS
+
+| Without instance icon | With instance icon |
+| --- | --- |
+| <img src="docs/media/alerts.png" alt="ALERTS without an instance icon" width="416"> | <img src="docs/media/alerts-with-icon.png" alt="ALERTS with an instance icon" width="416"> |
+
+### NODES — TCP
+
+| Without instance icon | With instance icon |
+| --- | --- |
+| <img src="docs/media/nodes-tcp.png" alt="NODES — TCP without an instance icon" width="416"> | <img src="docs/media/nodes-tcp-with-icon.png" alt="NODES — TCP with an instance icon" width="416"> |
+
+### NODES — HTTP
+
+| Without instance icon | With instance icon |
+| --- | --- |
+| <img src="docs/media/nodes-http.png" alt="NODES — HTTP without an instance icon" width="416"> | <img src="docs/media/nodes-http-with-icon.png" alt="NODES — HTTP with an instance icon" width="416"> |
+
+### Animated demonstration
+
+<img src="docs/media/networkmonitor-demo.gif" alt="NetworkMonitor page demonstration" width="520">
