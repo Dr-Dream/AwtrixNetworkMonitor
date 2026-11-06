@@ -1,6 +1,6 @@
 # @name    NetworkMonitor
 # @desc    TCP, HTTP and public IP monitoring (TC002)
-# @author  ChatGPT
+# @author  Dr-Dream / ChatGPT / Codex
 # @version 0.27
 
 # @needs tcpф
