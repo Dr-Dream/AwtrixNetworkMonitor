@@ -2,6 +2,16 @@
 
 These images were captured from the real 52×16 TC002 framebuffer running NetworkMonitor 0.27. Screenshots are rendered at **1040×320** with a visible LED matrix: each source pixel occupies a 20×20 cell with a 16×16 LED face and dark gaps. Unlit cells use a dim neutral face so the grid remains visible. Lit-pixel colors and positions are preserved, without smoothing, added labels, or fabricated results. The same presentation is applied to the GIF.
 
+## AWTRIX Hub cover
+
+[networkmonitor-cover.gif](networkmonitor-cover.gif) is the dedicated **4-second**, **40-frame**, **1040×320** cover (approximately 39 KB). It shows a readable HOME scene followed by a full-width response-history graph with red failure columns. The LED-grid rendering is the same as the screenshots.
+
+![NetworkMonitor Hub cover](networkmonitor-cover.gif)
+
+Still images: [HOME](networkmonitor-cover-home.png) and [history](networkmonitor-cover-history.png).
+
+These cover scenes were rendered on the actual TC002 by a [dedicated demo script](../../tools/NetworkMonitorCover.ax). The IP `192.0.2.1`, host `nas`, counters, response time, and populated history are **synthetic promotional data**, not measured network results. The production script and all its configuration values were restored and compared with the pre-capture backups afterward. The older screenshot series below remains a separate set of real observations with temporary demonstration hosts.
+
 ## Files
 
 | Page | Full-width layout | With instance icon |

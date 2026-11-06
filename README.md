@@ -231,6 +231,12 @@ Screenshots and animation use a visible LED grid with dark gaps between pixels, 
 | --- | --- |
 | <img src="docs/media/nodes-http.png" alt="NODES — HTTP without an instance icon" width="416"> | <img src="docs/media/nodes-http-with-icon.png" alt="NODES — HTTP with an instance icon" width="416"> |
 
+### AWTRIX Hub cover
+
+A staged demonstration of HOME and a populated history graph, rendered on the device using synthetic data.
+
+<img src="docs/media/networkmonitor-cover.gif" alt="NetworkMonitor cover showing HOME and response history with failure bars" width="520">
+
 ### Animated demonstration
 
 <img src="docs/media/networkmonitor-demo.gif" alt="NetworkMonitor page demonstration" width="520">
