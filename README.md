@@ -8,6 +8,8 @@ Keep an eye on your network from your AWTRIX NG clock. NetworkMonitor checks TCP
 
 **GitHub:** [Dr-Dream/AwtrixNetworkMonitor](https://github.com/Dr-Dream/AwtrixNetworkMonitor)
 
+**AWTRIX Hub:** [Install NetworkMonitor](https://awtrix.de/script/eTYy7Bu4YsbA)
+
 ## Features
 
 - Separate, comma-separated lists for TCP services and HTTP/HTTPS URLs.
