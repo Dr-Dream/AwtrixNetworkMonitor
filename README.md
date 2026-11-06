@@ -2,7 +2,7 @@
 
 Keep an eye on your network from your AWTRIX NG clock. NetworkMonitor checks TCP services and HTTP endpoints, shows your public IP address, and cycles through a network overview, active failures, and per-host response history.
 
-**Platform:** Ulanzi TC002 · **Display:** 52 × 16 · **Version:** 0.32
+**Platform:** Ulanzi TC002 · **Display:** 52 × 16 · **Version:** 0.33
 
 **Authors:** Dr-Dream / ChatGPT / Codex
 

@@ -1,4 +1,4 @@
-# NetworkMonitor 0.32 configuration reference
+# NetworkMonitor 0.33 configuration reference
 
 The complete user-facing configuration tables, defaults, ranges, input examples, and screen diagrams are maintained in the [README](../README.md#configuration). That document is the English description prepared for the AWTRIX Hub listing.
 

@@ -76,6 +76,21 @@ Do not introduce a generic plugin framework, multi-app framework, dependency inj
 - Before a write operation, state the exact device, endpoint/action, and app name affected.
 - Never ask the user to paste a real API key or password into chat. Use a placeholder and explain local configuration instead.
 
+## Release consistency
+
+- When preparing a new release, update `# @version` in `NetworkMonitor.ax` and the current version in `README.md`, `docs/hub-description.md`, `docs/configuration.md`, and `docs/architecture.md` together.
+- Put the new version's release notes at the top of `docs/hub-whats-new.md`. Lead with the main fix or behavior change; preserve older releases below under their original version numbers.
+- Preserve historical verification versions and existing versioned media filenames. Do not relabel old hardware checks as checks of the new release.
+- Before declaring release materials ready, check that current version labels agree and that the newest change is included in What's new. Do not change installed device scripts merely to synchronize version labels without installation authorization.
+
+## Rotation regression prevention
+
+- For changes to page timing, lifecycle hooks, rotation calls, or manual timers, run `python3 tests/check_rotation_handoff.py`.
+- Treat a requested exit as final immediately: clear local visibility/hold state before requesting the transition. Do not wait for `on_hide` to prevent another `rotation.next()` call.
+- Repeated completion during an outgoing transition and late timer callbacks must not advance or release a hold belonging to the next app.
+- When hardware verification is authorized, observe natural rotation without repeatedly pinning the app. Confirm that the following app receives its normal dwell time, especially with NODES disabled and no failures. Check manual timeout behavior when it is affected.
+- Record what was actually checked and any remaining gaps. Local syntax-adapted regression tests are not Berry compilation or hardware verification. Existing device-safety and installation-authorization rules still apply.
+
 ## Deliverables
 
 - When asked to implement or revise the app, deliver the complete Berry source file, not a patch.

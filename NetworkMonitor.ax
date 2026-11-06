@@ -1,7 +1,7 @@
 # @name    Network-Monitor-TCP-HTTP
 # @desc    TCP, HTTP and public IP monitoring (TC002)
 # @author  Dr-Dream / ChatGPT / Codex
-# @version 0.32
+# @version 0.33
 
 # @needs tcp
 
@@ -378,6 +378,21 @@ class NetworkMonitor
   # 2 = NODES (optional)
   # --------------------------------------------------
 
+  # Mark the turn finished before requesting an asynchronous display transition.
+  def finish_turn()
+    if !self.visible
+      return
+    end
+    self.visible = false
+    self.held = false
+    if self.manual_timer != nil
+      timer.cancel(self.manual_timer)
+      self.manual_timer = nil
+    end
+    rotation.resume()
+    rotation.next()
+  end
+
   def next_page()
     # HOME -> ALERTS (if failures) -> NODES (if enabled) -> HOME
     # ALERTS is skipped when there are no failures.
@@ -406,9 +421,7 @@ class NetworkMonitor
     end
 
     if self.mode == "auto" && self.visible && self.page == 0
-      self.held = false
-      rotation.resume()
-      rotation.next()
+      self.finish_turn()
       return
     end
 
@@ -846,7 +859,6 @@ class NetworkMonitor
     if self.manual_timer != nil
       timer.cancel(self.manual_timer)
       self.manual_timer = nil
-      rotation.resume()
     end
   end
 
@@ -924,8 +936,7 @@ class NetworkMonitor
 
     self.manual_timer = timer.after(self.manualhold_ms, def ()
       self.manual_timer = nil
-      rotation.resume()
-      rotation.next()
+      self.finish_turn()
     end)
     if self.manual_timer == nil
       rotation.resume()

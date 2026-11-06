@@ -1,4 +1,4 @@
-# NetworkMonitor 0.32 architecture
+# NetworkMonitor 0.33 architecture
 
 One Berry class in `NetworkMonitor.ax`. The required `tcp` module is documented as TC002-only. The app adds no shared modules or background apps and does not change device settings.
 
@@ -44,3 +44,11 @@ The combined 0.31 renderer was compiled and captured on TC002 in a temporary syn
 Single-item behavior was also verified on TC002 in synthetic demos with indicators enabled, with and without an instance icon. Pixel checks confirmed the eight-row graph through row 15 for one NODES host and the original ALERTS text position with a blank final row for one failure. Both runs completed without compile/runtime errors, and original source/configuration were restored and compared exactly.
 
 Full-width extension beneath the instance icon was verified on TC002 with default icon geometry and 12, 42 and 52 synthetic failing targets on both NODES and ALERTS. Pixel checks confirmed content-only marks for 12, full-width marks for 42, and exactly one white/51 gray pixels for 52. All runs completed without compile/runtime errors; installed source and original configuration values were restored and compared exactly.
+
+## Rotation handoff
+
+The device keeps a script visible during the outgoing transition; `on_hide` may arrive after another loop tick. Previously, automatic completion left `visible=true` while returning to HOME. With NODES disabled and no failures, the next loop could issue another `rotation.next()` and skip the following app. Passive observation on TC002 firmware 1.2.3 recorded Plasma for about 1.1 seconds after NetworkMonitor and Pixel-Aquarium for about one second after the VPN instance.
+
+`finish_turn()` now clears the app's local visible/held state and cancels any pending manual timer before resuming rotation and requesting one transition. Subsequent completion calls or late timer callbacks cannot advance another app. `on_hide` cancels a remaining timer without issuing a redundant resume. Network polling continues while the app is hidden.
+
+`python3 tests/check_rotation_handoff.py` checks repeated completion before `on_hide`, final NODES completion, a late/manual timer and a hidden app. It executes the source handoff methods through a limited Berry-to-Python syntax adapter with mocked rotation/timer calls; it is not Berry compilation or hardware validation of the fix. The corrected full app was subsequently installed as a separate instance, `Network-Monitor-Rotation-Fix`, on TC002 firmware 1.2.3. All configuration values were copied from `Network-Monitor-TCP-HTTP` and compared exactly; the original source/configuration were unchanged. Passive observation after showing the new instance recorded its successor Time for about 11.2 seconds before Ant-Farm, with no reported compile/runtime error. This validates the observed automatic handoff with NODES disabled; manual-timer and other page combinations remain covered only by local regression checks.

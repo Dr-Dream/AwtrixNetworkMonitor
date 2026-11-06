@@ -1,4 +1,8 @@
-# What’s new in 0.32
+# What’s new in 0.33
+
+- Fixed a repeated rotation handoff that could skip the application following NetworkMonitor, especially with NODES disabled and no active failures. Completion now requests a transition only once and ignores late timer callbacks after leaving the screen.
+
+## What’s new in 0.32
 
 - Added bottom-row position indicators to **NODES and ALERTS**, enabled by default. The current item is white; other items are gray. NODES shows all hosts, while ALERTS shows only active failures. With just one item on a page, its indicator is hidden and the original graph height or text position is retained.
 - Marks are distributed evenly across the available width, becoming one pixel per item at maximum capacity. Colors are configurable; disable **Show page indicators** to restore the previous layout.
