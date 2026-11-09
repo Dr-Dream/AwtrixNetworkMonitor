@@ -1,4 +1,4 @@
-# NetworkMonitor 0.33 configuration reference
+# NetworkMonitor 0.34 configuration reference
 
 The complete user-facing configuration tables, defaults, ranges, input examples, and screen diagrams are maintained in the [README](../README.md#configuration). That document is the English description prepared for the AWTRIX Hub listing.
 
@@ -31,13 +31,13 @@ Version 0.27 compiled and ran as `NetworkCheck` on TC002 firmware 1.2.3. All six
 
 ## Graph gradient
 
-`graph_gradient=true` enables a vertical palette from `color_ok` to `color_graph_top` (default `#FF9830`). Each node uses its own retained successful history; failed samples are excluded from the minimum and maximum. TCP/HTTP success still depends on connection/status, not on color.
+`graph_gradient=true` enables a vertical palette from `color_ok` to `color_graph_top` (default `#FF9830`). `graph_shared_scale=true` (**Shared graph scale**, enabled by default) uses the combined retained successful histories of all TCP and HTTP hosts for both height and color. Disabling it restores each node’s own retained successful history; failed samples are excluded from the minimum and maximum. TCP/HTTP success still depends on connection/status, not on color.
 
 The baseline is the successful minimum. The color span is the larger of the observed maximum minus that baseline and `baseline * graph_full_pct / 100`. `graph_full_pct` defaults to 100 and accepts 10–1000%. Increasing it softens the color change. A one-millisecond floor protects zero-resolution measurements and division; it is not a network-health threshold.
 
-At default settings, stable 5 ms samples remain green, 5–6 ms variation receives only a slight tint, and a 5–50 ms range reaches orange at the peak. Falling values become greener. The reference adapts when old samples leave the retained history; colors compare values within that window rather than indicating an absolute latency limit.
+For a history window containing only stable 5 ms samples, bars remain green; 5–6 ms variation receives only a slight tint, and a 5–50 ms range reaches orange at the peak. Falling values become greener. The reference adapts when old samples leave the retained history; colors compare values within that window rather than indicating an absolute latency limit.
 
-Bar heights remain autoscaled to the retained maximum. Failed checks remain solid `color_fail` columns. Disabling the gradient restores solid `color_ok` bars. The palette is cached during initialization; drawing allocates no collections.
+Bar heights autoscale to the shared retained maximum, or the host maximum when shared scaling is disabled. Equal latencies have equal heights and colors across hosts in shared mode. The public-IP request is excluded. Bounds are refreshed after each recorded result, including history eviction; empty histories and failures contribute no extrema. Failed checks remain solid `color_fail` columns. Disabling the gradient restores solid `color_ok` bars. The palette is cached during initialization; drawing allocates no collections.
 
 The relative mapping was compiled and executed in a temporary TC002 demo with synthetic histories. Framebuffer checks confirmed green-only stable samples, a slight tint for small fluctuations, and orange peaks with red failures for large changes. The original source and all stored configuration values were restored and compared exactly. This verifies the demo rendering, not deployment of the complete revised monitoring app.
 

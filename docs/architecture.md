@@ -1,4 +1,4 @@
-# NetworkMonitor 0.33 architecture
+# NetworkMonitor 0.34 architecture
 
 One Berry class in `NetworkMonitor.ax`. The required `tcp` module is documented as TC002-only. The app adds no shared modules or background apps and does not change device settings.
 
@@ -25,7 +25,7 @@ The house adds a chimney and separated windows; the shield contains a padlock; t
 
 ## Successful-history gradient
 
-Initialization caches a small RGB palette from `color_ok` to `color_graph_top` and reads `graph_full_pct`. Drawing scans the retained history for the successful minimum and maximum, ignoring failures. Each occupied row maps to a latency level under the current height autoscale. Its palette index follows growth above the minimum, divided by the larger of the observed range and the configured percentage of the minimum. A one-millisecond floor handles zero values and division.
+Initialization caches a small RGB palette from `color_ok` to `color_graph_top` and reads `graph_full_pct`. `graph_shared_scale` defaults to true. After each result is appended and history is trimmed, `record_sample` recomputes and caches the successful minimum and maximum across all TCP and HTTP histories, ignoring failures and empty histories. This includes expiry of old extrema and runs outside drawing. The public-IP request is excluded. When shared scaling is disabled, drawing scans only the current host history for its own bounds, preserving the previous behavior. Each occupied row maps to a latency level under the current height autoscale. Its palette index follows growth above the minimum, divided by the larger of the observed range and the configured percentage of the minimum. A one-millisecond floor handles zero values and division.
 
 Stable values remain green; small relative changes stay near green, while large increases reach orange. Decreasing values return toward green. Colors adapt as samples leave the history window. Failed samples retain solid `color_fail` columns; disabling `graph_gradient` uses solid successful bars.
 
@@ -52,3 +52,7 @@ The device keeps a script visible during the outgoing transition; `on_hide` may 
 `finish_turn()` now clears the app's local visible/held state and cancels any pending manual timer before resuming rotation and requesting one transition. Subsequent completion calls or late timer callbacks cannot advance another app. `on_hide` cancels a remaining timer without issuing a redundant resume. Network polling continues while the app is hidden.
 
 `python3 tests/check_rotation_handoff.py` checks repeated completion before `on_hide`, final NODES completion, a late/manual timer and a hidden app. It executes the source handoff methods through a limited Berry-to-Python syntax adapter with mocked rotation/timer calls; it is not Berry compilation or hardware validation of the fix. The corrected full app was subsequently installed as a separate instance, `Network-Monitor-Rotation-Fix`, on TC002 firmware 1.2.3. All configuration values were copied from `Network-Monitor-TCP-HTTP` and compared exactly; the original source/configuration were unchanged. Passive observation after showing the new instance recorded its successor Time for about 11.2 seconds before Ant-Farm, with no reported compile/runtime error. This validates the observed automatic handoff with NODES disabled; manual-timer and other page combinations remain covered only by local regression checks.
+
+## Version 0.34 shared-scale verification
+
+`python3 tests/check_graph_scale.py` passed four local syntax-adapted checks covering combined host bounds, failure exclusion, expired minima/maxima, zero and failure-only histories, and the disabled mode initialization. `python3 tests/check_rotation_handoff.py` also passed all four existing regression checks. These are local logic checks, not Berry compilation or device rendering verification. Version 0.34 has not been installed or verified on hardware as part of this change.

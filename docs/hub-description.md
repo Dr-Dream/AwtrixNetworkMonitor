@@ -2,7 +2,7 @@
 
 Keep an eye on your network from your AWTRIX NG clock. NetworkMonitor checks TCP services and HTTP endpoints, shows your public IP address, and cycles through a network overview, active failures, and per-host response history.
 
-**Platform:** Ulanzi TC002 · **Display:** 52 × 16 · **Version:** 0.33
+**Platform:** Ulanzi TC002 · **Display:** 52 × 16 · **Version:** 0.34
 
 **Authors:** Dr-Dream / ChatGPT / Codex
 
@@ -72,7 +72,7 @@ The upper line shows a small TCP or HTTP pictogram, the target, and its result i
 The graph fills the lower half of the available interface area:
 
 - One completed check occupies one pixel column.
-- Successful bars use a green-to-orange vertical gradient relative to the minimum successful response time in each node’s retained history. Stable values stay green; small fluctuations receive a slight tint, and substantial increases move toward orange. Falling values become greener again. **Full orange increase** (100% by default) sets the minimum relative growth needed to reach orange; when the observed range is larger, its maximum becomes the orange endpoint. Bar heights scale to the largest successful response time in the retained history.
+- Successful bars use a green-to-orange vertical gradient relative to the minimum successful response time across all retained TCP and HTTP histories by default. Stable values stay green; small fluctuations receive a slight tint, and substantial increases move toward orange. Falling values become greener again. **Full orange increase** (100% by default) sets the minimum relative growth needed to reach orange; when the observed range is larger, its maximum becomes the orange endpoint. Bar heights share the largest successful response time across those histories, so equal latencies have equal heights and colors on every host. Disable **Shared graph scale** to use each host’s own minimum and maximum. Failed checks do not affect either scale.
 - Failed checks are full-height red bars.
 - An optional bottom-row host indicator highlights the current host in white and the others in gray. Slots are distributed evenly across the available interface width, with small gaps where space permits. Each host has its own slot, up to one host per pixel. When the item count exceeds the width beside the instance icon (36 with default geometry), the indicator extends across the full bottom row beneath the icon without resizing it. NODES uses the total host count; ALERTS uses the current failure count. The combined TCP + HTTP target count must not exceed the display width (52 on TC002), with or without an icon. Excess targets reject the entire list and show a Host limit message; checks remain paused until the configuration is corrected. With just one host, the indicator is hidden and the graph keeps its full height. The graph reserves one row only while the indicator is visible. Disable **Show page indicators** to restore the full graph height.
 - Oldest samples appear on the left; newest samples appear on the right. Once full, the graph drops the oldest sample.
@@ -168,6 +168,7 @@ All settings are available in the app's gear menu. Defaults below apply to a new
 | **Show page indicators** (`node_indicator`) | On | Show evenly spaced position marks in the bottom row of NODES and ALERTS when the page has at least two items. Enabled by default. |
 | **Active position indicator** (`color_node_active`) | `#FFFFFF` | Current host or alert mark. |
 | **Other position indicators** (`color_node_idle`) | `#606060` | Other host or alert marks. |
+| **Shared graph scale** (`graph_shared_scale`) | On | Use a common successful minimum and maximum across all TCP and HTTP histories for bar heights and gradient. Off restores independent scaling per host. |
 | **Graph gradient** (`graph_gradient`) | On | Green-to-orange vertical gradient for successful history bars. Off uses a solid Success color. |
 | **Full orange increase** (`graph_full_pct`) | 100% | Minimum increase above the retained successful minimum needed for full orange; 10–1000%. Larger values soften the color change. |
 | **Scroll speed** (`scrollspeed`) | 65% | Scrolling speed; 10–300%. Firmware base speed at 100% is 21 pixels/s. |
