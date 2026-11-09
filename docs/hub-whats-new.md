@@ -1,4 +1,9 @@
-# What’s new in 0.33
+# What’s new in 0.34
+
+- Added **Shared graph scale**, enabled by default. All TCP and HTTP response-history graphs now use a common successful minimum and maximum for bar heights and the green-to-orange gradient, making response times comparable across hosts. Failed checks remain red and do not affect the scale. Disable the setting to restore independent scaling per host.
+- The shared scale follows retained history and updates when old samples expire. Public-IP requests are excluded.
+
+## What’s new in 0.33
 
 - Fixed a repeated rotation handoff that could skip the application following NetworkMonitor, especially with NODES disabled and no active failures. Completion now requests a transition only once and ignores late timer callbacks after leaving the screen.
 
